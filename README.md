@@ -1,1 +1,2 @@
-# KCWIPyDRP
+# KCWIPY
+KCWI Pipeline
