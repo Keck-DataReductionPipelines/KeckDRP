@@ -1,7 +1,7 @@
-from ccd import ccd
-from imgmath import imgmath
+from KCWIPyDRP.ccd import ccd
+from KCWIPyDRP.imgmath import imgmath
 
-class kcwi(object,ccd,imgmath):
+class kcwi(ccd,imgmath):
     def __init__(self):
         super(kcwi,self).__init__()
         print("init")

@@ -1,13 +1,15 @@
-import kcwi_primitives
+from KCWIPyDRP import kcwi_primitives
 import argparse
 import importlib
+
+
 
 def go(iimg,rcp):
     if rcp is None:
         print("Checking %s header for recipe" % iimg)
         quit()
 
-    mymodule = importlib.import_module(rcp)
+    mymodule = importlib.import_module("KCWIPyDRP.recipes."+str(rcp))
     myfunc = getattr(mymodule,rcp)
 
     p = kcwi_primitives.kcwi()
