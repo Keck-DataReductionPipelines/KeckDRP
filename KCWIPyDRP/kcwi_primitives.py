@@ -6,7 +6,8 @@ from astropy import log
 class Kcwi(Ccd, Imgmath):
 
     def __init__(self):
-        super(Kcwi, self).__init__()
+        Ccd.__init__(self)
+        Imgmath.__init__(self)
         log.info("init")
 
     def output_master(self, master_type="BIAS"):

@@ -10,3 +10,4 @@ def make_master_flat(p):
     p.rectify_image()
     p.img_combine()
     p.output_master(master_type="FLAT")
+    log.info("make_master_flat")
