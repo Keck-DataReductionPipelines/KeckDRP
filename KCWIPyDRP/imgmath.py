@@ -1,13 +1,19 @@
 import numpy as np
 import scipy as sp
+from astropy import log
 
-class imgmath():
+
+class Imgmath:
+
     def __init__(self):
-        print("init")
+        log.info("init")
+
     def img_combine(self):
-        print("img_combine")
+        log.info("img_combine")
+
     def img_subtract(self):
-        print("img_subtract")
+        log.info("img_subtract")
+
     def img_divide(self):
-        print("img_divide")
+        log.info("img_divide")
 

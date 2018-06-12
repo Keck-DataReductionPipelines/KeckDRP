@@ -5,6 +5,7 @@ from astropy import log
 global log
 log.setLevel('INFO')
 
+
 def go(iimg,rcp):
     if rcp is None:
         log.info("Checking %s header for recipe" % iimg)
@@ -13,7 +14,7 @@ def go(iimg,rcp):
     mymodule = importlib.import_module("KCWIPyDRP.recipes."+str(rcp))
     myfunc = getattr(mymodule,rcp)
 
-    p = kcwi_primitives.kcwi()
+    p = kcwi_primitives.Kcwi()
 
     log.info("executing recipe: %s" % rcp)
     myfunc(p)
