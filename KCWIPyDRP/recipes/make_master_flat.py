@@ -1,3 +1,4 @@
+from astropy import log
 def make_master_flat(p):
     p.subtract_oscan()
     p.trim_oscan()

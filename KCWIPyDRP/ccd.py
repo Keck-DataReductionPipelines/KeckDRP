@@ -1,19 +1,20 @@
 import numpy as np
 import scipy as sp
+from astropy import log
 
 class ccd():
     def __init__(self):
-        print("init")
+        log.info("init")
     def subtract_oscan(self):
-        print("subtract_oscan")
+        log.info("subtract_oscan")
     def trim_oscan(self):
-        print("trim_oscan")
+        log.info("trim_oscan")
     def correct_gain(self):
-        print("correct_gain")
+        log.info("correct_gain")
     def remove_crs(self):
-        print("remove_crs")
+        log.info("remove_crs")
     def remove_badcols(self):
-        print("remove_badcols")
+        log.info("remove_badcols")
     def rectify_image(self):
-        print("rectify_image")
+        log.info("rectify_image")
 
