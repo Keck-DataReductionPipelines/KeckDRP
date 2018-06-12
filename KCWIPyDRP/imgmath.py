@@ -3,7 +3,7 @@ import scipy as sp
 from astropy import log
 
 
-class Imgmath:
+class Imgmath(object):
 
     def __init__(self):
         log.info("init")

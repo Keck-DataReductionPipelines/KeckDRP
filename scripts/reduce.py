@@ -6,7 +6,7 @@ global log
 log.setLevel('INFO')
 
 
-def go(iimg,rcp):
+def go(iimg, rcp):
     if rcp is None:
         log.info("Checking %s header for recipe" % iimg)
         quit()

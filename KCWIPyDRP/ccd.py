@@ -3,7 +3,7 @@ import scipy as sp
 from astropy import log
 
 
-class Ccd:
+class Ccd(object):
 
     def __init__(self):
         log.info("init")
