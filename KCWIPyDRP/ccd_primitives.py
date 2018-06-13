@@ -3,13 +3,13 @@ import scipy as sp
 from astropy import log
 
 
-class Ccd:
+class CcdPrimitives:
 
-    def __init__(self):
-        log.info("init")
+    def set_frame(self,frame):
+        self.frame = frame
 
     def subtract_oscan(self):
-        log.info(self.img.header['BSEC1'])
+        log.info(self.frame.header['BSEC1'])
         log.info("subtract_oscan")
 
     def trim_oscan(self):
