@@ -12,9 +12,9 @@ def go(iimg, rcp):
         quit()
 
     mymodule = importlib.import_module("KCWIPyDRP.recipes."+str(rcp))
-    myfunc = getattr(mymodule,rcp)
+    myfunc = getattr(mymodule, rcp)
 
-    p = kcwi_primitives.Kcwi()
+    p = kcwi_primitives.Kcwi(iimg)
 
     log.info("executing recipe: %s" % rcp)
     myfunc(p)
