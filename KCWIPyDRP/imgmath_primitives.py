@@ -3,10 +3,10 @@ import scipy as sp
 from astropy import log
 
 
-class Imgmath:
+class ImgmathPrimitives:
 
-    def __init__(self):
-        log.info("init")
+    def set_frame(self,frame):
+        self.frame = frame
 
     def img_combine(self):
         log.info("img_combine")

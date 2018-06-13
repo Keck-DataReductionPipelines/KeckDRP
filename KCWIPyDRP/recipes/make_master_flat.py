@@ -2,7 +2,8 @@ from astropy import log
 import ccdproc
 
 
-def make_master_flat(p):
+def make_master_flat(p, frame):
+    p.set_frame(frame)
     p.subtract_oscan()
     p.trim_oscan()
     p.correct_gain()
