@@ -3,3 +3,6 @@ KCWIPyDRP.egg-info
 *.*~
 __pycache__
 __pycache__/*
+KCWIPyDRP/__pycache__
+KCWIPyDRP/__pycache__/*
+*.pyc
