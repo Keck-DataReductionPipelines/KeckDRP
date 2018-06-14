@@ -1,11 +1,9 @@
-import numpy as np
-import scipy as sp
 from astropy import log
 
 
 class CcdPrimitives:
 
-    def set_frame(self,frame):
+    def set_frame(self, frame):
         self.frame = frame
 
     def subtract_oscan(self):

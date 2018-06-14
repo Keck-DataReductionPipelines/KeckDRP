@@ -4,12 +4,19 @@ import ccdproc
 
 def make_master_flat(p, frame):
     p.set_frame(frame)
-    p.subtract_oscan()
-    p.trim_oscan()
-    p.correct_gain()
-    p.remove_badcols()
-    p.remove_crs()
-    p.rectify_image()
+    p.read_proctab()
+    new = p.row_proctab(suffix='intf')
+    if not p.in_proctab(row=new):
+        p.subtract_oscan()
+        p.trim_oscan()
+        p.correct_gain()
+        p.remove_badcols()
+        p.remove_crs()
+        p.rectify_image()
+        p.updt_proctab(row=new)
+        p.write_proctab()
+    else:
+        log.info("already processed")
     # p.put_proc()
     # nflat, flist = p.get_proc(type='FLAT')
     #if nflat > 5:

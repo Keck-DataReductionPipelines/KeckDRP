@@ -5,7 +5,7 @@ from astropy import log
 
 class ImgmathPrimitives:
 
-    def set_frame(self,frame):
+    def set_frame(self, frame):
         self.frame = frame
 
     def img_combine(self):

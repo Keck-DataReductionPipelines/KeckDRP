@@ -1,5 +1,6 @@
 from astropy.nddata import CCDData
 
+
 class KcwiCCD(CCDData):
     """
     the KCWICCD class subclasses the CCDData class, which is subclass of NDData
