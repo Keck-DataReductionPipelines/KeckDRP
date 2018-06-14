@@ -3,27 +3,25 @@ import ccdproc
 
 
 def make_master_flat(p, frame):
+    # do basic CCD reduction
     p.set_frame(frame)
     p.read_proctab()
-    new = p.row_proctab(suffix='intf')
-    if not p.in_proctab(row=new):
-        p.subtract_oscan()
-        p.trim_oscan()
-        p.correct_gain()
-        p.remove_badcols()
-        p.remove_crs()
-        p.rectify_image()
-        p.updt_proctab(row=new)
-        p.write_proctab()
-    else:
-        log.info("already processed")
-    # p.put_proc()
-    # nflat, flist = p.get_proc(type='FLAT')
-    #if nflat > 5:
-    #    c = p.img_combine(flist)
-    #    m = p.fit_flat(c)
-    #    p.output_master(m, master_type="FLAT")
-    #    p.put_proc(m)
-    #    log.info("make_master_flat")
-    # else:
-    #    log.info("not enough flats yet need 6")
+    p.subtract_oscan()
+    p.trim_oscan()
+    p.correct_gain()
+    p.remove_badcols()
+    p.remove_crs()
+    p.rectify_image()
+    # output file and update proc table
+    p.updt_proctab(suffix='int')
+    log.info("flat reduced")
+    # how many flats do we have?
+    plist = p.n_proctab(ttype='FLATLAMP')
+    log.info("number of flats = %d" % len(plist))
+    # create master flat
+    if len(plist) >= 6:
+        p.img_combine(plist)
+        # output file and update proc table
+        p.updt_proctab(suffix='mfimg', newtype='FLAT')
+        log.info("master flat produced")
+    p.write_proctab()

@@ -57,7 +57,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
         else:
             log.info("no proc table to write")
 
-    def row_proctab(self, suffix='int'):
+    def updt_proctab(self, suffix='int', newtype=None):
         if self.frame is not None and self.proctab is not None:
             stages = {'int': 1,
                       'intd': 2,
@@ -66,8 +66,16 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
                       'cube': 5,
                       'cubed': 6,
                       'cubes': 7}
+            if suffix in stages:
+                stage = stages[suffix]
+            else:
+                stage = 0
+            if newtype is None:
+                outtype = self.frame.header['IMTYPE']
+            else:
+                outtype = newtype
             new_row = [self.frame.header['STATEID'],
-                       self.frame.header['IMTYPE'],
+                       outtype,
                        self.frame.header['CAMERA'],
                        self.frame.header['BGRATNAM'],
                        self.frame.header['BGRANGLE'],
@@ -76,24 +84,19 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
                        self.frame.header['BFILTNAM'],
                        self.frame.header['MJD'],
                        self.frame.header['FRAMENO'],
-                       stages[suffix],
+                       stage,
                        suffix,
                        self.frame.header['OFNAME']]
         else:
             new_row = None
-        return new_row
 
-    def updt_proctab(self, row=None):
-        if row is not None:
-            self.proctab.add_row(row)
+        self.proctab.add_row(new_row)
 
-    def in_proctab(self, row=None):
-        if row is not None and self.proctab is not None:
-            tlen = len(self.proctab)
-            # do real tests in here
-            return False
+    def n_proctab(self, ttype=None):
+        if ttype is not None and self.proctab is not None:
+            tab = self.proctab[(self.proctab['TYPE'] == ttype)]
+            tab = tab[(tab['CID'] == self.frame.header['STATEID'])]
         else:
-            return False
+            tab = None
 
-
-
+        return tab
