@@ -1,5 +1,4 @@
 from astropy import log
-import ccdproc
 
 
 def make_master_flat(p, frame):
@@ -24,4 +23,6 @@ def make_master_flat(p, frame):
         # output file and update proc table
         p.updt_proctab(suffix='mfimg', newtype='FLAT')
         log.info("master flat produced")
+    else:
+        log.info("need 6 flats to produce master")
     p.write_proctab()

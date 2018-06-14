@@ -57,9 +57,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
         else:
             log.info("no proc table to write")
 
-    def updt_proctab(self, suffix='int', newtype=None):
+    def updt_proctab(self, suffix='raw', newtype=None):
         if self.frame is not None and self.proctab is not None:
-            stages = {'int': 1,
+            stages = {'raw': 0,
+                      'int': 1,
                       'intd': 2,
                       'intf': 3,
                       'intk': 4,
@@ -69,7 +70,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
             if suffix in stages:
                 stage = stages[suffix]
             else:
-                stage = 0
+                stage = 9
             if newtype is None:
                 outtype = self.frame.header['IMTYPE']
             else:
