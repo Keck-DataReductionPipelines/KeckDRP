@@ -9,7 +9,7 @@ class ImgmathPrimitives:
     def set_frame(self, frame):
         self.frame = frame
 
-    def img_combine(self, tab=None):
+    def img_combine(self, tab=None, suffix=None):
         if tab is not None:
             flist = tab['OFNAME']
             print(flist)

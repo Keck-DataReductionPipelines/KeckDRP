@@ -8,10 +8,10 @@ def make_master_bias(p, frame):
     # output file and update proc table
     p.updt_proctab()
     log.info("bias counted")
-    # how many flats do we have?
-    plist = p.n_proctab(ttype='BIAS')
+    # how many biases do we have?
+    plist = p.n_proctab(targtype='BIAS')
     log.info("number of biases = %d" % len(plist))
-    # create master flat
+    # create master bias
     if len(plist) >= 7:
         p.img_combine(plist)
         # output file and update proc table

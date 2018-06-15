@@ -10,15 +10,20 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
     def set_frame(self, frame):
         self.frame = frame
 
-    def output_master(self, master_type="BIAS"):
-        log.info("output_master %s" % master_type)
+    def output_image(self, suffix=None, outdir='redux'):
+        if suffix is not None:
+            origfn = self.frame.header['OFNAME']
+            outfn = os.path.join(outdir,
+                                 origfn.split('.')[0]+'_'+suffix+'.fits')
+            self.frame.write(outfn)
+            log.info("output file: %s" % outfn)
 
     def subtract_scattered_light(self):
         log.info("subtract_scattered_light")
 
     def new_proctab(self):
         cnames = ('CID', 'TYPE', 'CAM', 'GRAT', 'GANG', 'CWAVE', 'BIN', 'FILT',
-                  'MJD', 'FRAMENO', 'SUFF', 'STAGE', 'OFNAME')
+                  'MJD', 'FRAMENO', 'STAGE', 'SUFF', 'OFNAME')
         dtypes = ('S24', 'S9', 'S4', 'S5', 'float64', 'float64', 'S4', 'S5',
                   'float64', 'int32', 'int32', 'S5', 'S25')
         meta = {'KCWI DRP PROC TABLE': 'new table'}
@@ -71,12 +76,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
                 stage = stages[suffix]
             else:
                 stage = 9
-            if newtype is None:
-                outtype = self.frame.header['IMTYPE']
-            else:
-                outtype = newtype
+            if newtype is not None:
+                self.frame.header['IMTYPE'] = newtype
+            # output file
+            if stage > 0:
+                self.output_image(suffix=suffix)
+            # new row for proc table
             new_row = [self.frame.header['STATEID'],
-                       outtype,
+                       self.frame.header['IMTYPE'],
                        self.frame.header['CAMERA'],
                        self.frame.header['BGRATNAM'],
                        self.frame.header['BGRANGLE'],
@@ -90,12 +97,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
                        self.frame.header['OFNAME']]
         else:
             new_row = None
-
         self.proctab.add_row(new_row)
 
-    def n_proctab(self, ttype=None):
-        if ttype is not None and self.proctab is not None:
-            tab = self.proctab[(self.proctab['TYPE'] == ttype)]
+    def n_proctab(self, targtype=None):
+        if targtype is not None and self.proctab is not None:
+            tab = self.proctab[(self.proctab['TYPE'] == targtype)]
             tab = tab[(tab['CID'] == self.frame.header['STATEID'])]
         else:
             tab = None
