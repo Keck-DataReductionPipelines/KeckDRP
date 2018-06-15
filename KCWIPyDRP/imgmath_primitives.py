@@ -1,5 +1,3 @@
-import numpy as np
-import scipy as sp
 from astropy import log
 from astropy.table import Table
 
