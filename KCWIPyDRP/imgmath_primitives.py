@@ -1,5 +1,4 @@
 from astropy import log
-from astropy.table import Table
 
 
 class ImgmathPrimitives:
@@ -18,4 +17,3 @@ class ImgmathPrimitives:
 
     def img_divide(self):
         log.info("img_divide")
-

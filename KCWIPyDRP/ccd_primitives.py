@@ -24,4 +24,3 @@ class CcdPrimitives:
 
     def rectify_image(self):
         log.info("rectify_image")
-

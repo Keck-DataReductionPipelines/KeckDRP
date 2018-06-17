@@ -35,5 +35,3 @@ class KcwiCCD(CCDData):
             self.header['ILLUM'] = 'Object'
         else:
             self.header['ILLUM'] = 'Test'
-
-

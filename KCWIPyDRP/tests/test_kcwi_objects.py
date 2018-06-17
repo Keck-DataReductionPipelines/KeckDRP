@@ -16,6 +16,7 @@ DEFAULT_SEED = 123
 DEFAULT_DATA_SIZE = 100
 DEFAULT_DATA_SCALE = 1.0
 
+
 def value_from_markers(key, request):
     try:
         val = request.keywords[key].args[0]
@@ -38,9 +39,11 @@ def ccd_data(request):
     ccd.header = fake_meta
     return ccd
 
+
 def test_ccddata_empty():
     with pytest.raises(TypeError):
         KcwiCCD()  # empty initializer should fail
+
 
 def test_ccddata_must_have_unit():
     with pytest.raises(ValueError):
@@ -55,4 +58,4 @@ def test_ccddata_unit_cannot_be_set_to_none(ccd_data):
 def test_ccddata_meta_header_conflict():
     with pytest.raises(ValueError) as exc:
         KcwiCCD([1, 2, 3], unit='', meta={1: 1}, header={2: 2})
-        assert "can't have both header and meta." in str(exc) 
+        assert "can't have both header and meta." in str(exc)

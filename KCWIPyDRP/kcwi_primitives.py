@@ -10,7 +10,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
     def set_frame(self, frame):
         self.frame = frame
 
-    def output_image(self, suffix=None, outdir='redux'):
+    def generate_output_image(self, suffix=None, outdir='redux'):
         if suffix is not None:
             origfn = self.frame.header['OFNAME']
             outfn = os.path.join(outdir,
@@ -62,7 +62,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
         else:
             log.info("no proc table to write")
 
-    def updt_proctab(self, suffix='raw', newtype=None):
+    def update_proctab(self, suffix='raw', newtype=None):
         if self.frame is not None and self.proctab is not None:
             stages = {'raw': 0,
                       'int': 1,
@@ -79,8 +79,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
             if newtype is not None:
                 self.frame.header['IMTYPE'] = newtype
             # output file
-            if stage > 0:
-                self.output_image(suffix=suffix)
+            # if stage > 0:
+            #    self.generate_output_image(suffix=suffix)
             # new row for proc table
             new_row = [self.frame.header['STATEID'],
                        self.frame.header['IMTYPE'],

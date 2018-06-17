@@ -12,16 +12,18 @@ def make_master_flat(p, frame):
     p.remove_crs()
     p.rectify_image()
     # output file and update proc table
-    p.updt_proctab(suffix='int')
+    p.update_proctab(suffix='int')
+    p.generate_output_image(suffix='int')
     log.info("flat reduced")
     # how many flats do we have?
-    plist = p.n_proctab(targtype='FLATLAMP')
-    log.info("number of flats = %d" % len(plist))
+    combine_list = p.n_proctab(targtype='FLATLAMP')
+    log.info("number of flats = %d" % len(combine_list))
     # create master flat
-    if len(plist) >= 6:
-        p.img_combine(plist, suffix='int')
+    if len(combine_list) >= 6:
+        p.img_combine(combine_list, suffix='int')
         # output file and update proc table
-        p.updt_proctab(suffix='mfimg', newtype='FLAT')
+        p.update_proctab(suffix='mfimg', newtype='FLAT')
+        p.generate_output_image(suffix='mfimg')
         log.info("master flat produced")
     else:
         log.info("need 6 flats to produce master")
