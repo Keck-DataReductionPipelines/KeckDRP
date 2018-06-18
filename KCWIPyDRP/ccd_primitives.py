@@ -6,6 +6,11 @@ class CcdPrimitives:
     def set_frame(self, frame):
         self.frame = frame
 
+    def subtract_bias(self):
+        tab = self.n_proctab(targtype='MBIAS')
+        log.info("%d master bias frames found" % len(tab))
+        self.img_subtract(tab, suffix='mbias', indir='redux')
+
     def subtract_oscan(self):
         log.info(self.frame.header['BSEC1'])
         log.info("subtract_oscan")

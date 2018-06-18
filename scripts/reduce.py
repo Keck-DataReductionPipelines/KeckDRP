@@ -37,9 +37,6 @@ def main_loop(args):
         return
 
 
-
-
-
 def go(image, rcp):
     if rcp is None:
         log.info("Checking %s header for recipe" % image)
@@ -56,7 +53,7 @@ def go(image, rcp):
         log.info("The specified file (%s) does not exist" % (image))
         sys.exit(1)
 
-    log.info("\n---  Reducing frame %s with recipe: %s ---" % (image,rcp))
+    log.info("\n---  Reducing frame %s with recipe: %s ---" % (image, rcp))
     p = kcwi_primitives.KcwiPrimitives()
     recipe(p, frame)
 

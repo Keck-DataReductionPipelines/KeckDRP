@@ -10,7 +10,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
     def set_frame(self, frame):
         self.frame = frame
 
-    def generate_output_image(self, suffix=None, outdir='redux'):
+    def write_image(self, suffix=None, outdir='redux'):
         if suffix is not None:
             origfn = self.frame.header['OFNAME']
             outfn = os.path.join(outdir,
@@ -80,7 +80,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
                 self.frame.header['IMTYPE'] = newtype
             # output file
             # if stage > 0:
-            #    self.generate_output_image(suffix=suffix)
+            #    self.write_image(suffix=suffix)
             # new row for proc table
             new_row = [self.frame.header['STATEID'],
                        self.frame.header['IMTYPE'],
