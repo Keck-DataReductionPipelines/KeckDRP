@@ -13,7 +13,6 @@ class ImgmathPrimitives:
                     method='average', unit='adu'):
         if tab is not None:
             flist = tab['OFNAME']
-            print(flist)
 
             if indir is None:
                 pref = '.'
