@@ -1,11 +1,11 @@
-from astropy import log
+
 import numpy as np
 
 
-class CcdPrimitives:
+class CcdPrimitives(PrimitivesBASE):
 
-    def set_frame(self, frame):
-        self.frame = frame
+    def __init__(self):
+        super(CcdPrimitives, self).__init__()
 
     def subtract_bias(self):
         tab = self.n_proctab(targtype='MBIAS')

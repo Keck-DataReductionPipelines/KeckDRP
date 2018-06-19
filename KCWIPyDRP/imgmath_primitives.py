@@ -1,13 +1,8 @@
-from astropy import log
-from KCWIPyDRP.kcwi_objects import KcwiCCD
-import ccdproc
-import os
-
 
 class ImgmathPrimitives:
 
-    def set_frame(self, frame):
-        self.frame = frame
+    def __init__(self):
+        super(ImgmathPrimitives, self).__init__()
 
     def img_combine(self, tab=None, ctype='bias', indir=None, suffix=None,
                     method='average', unit='adu'):

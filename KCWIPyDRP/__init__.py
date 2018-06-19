@@ -1,8 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-The ccdproc package is a collection of code that will be helpful in basic CCD
-processing. These steps will allow reduction of basic CCD data as either a
-stand-alone processing or as part of a pipeline.
+The KCWIPyDRP is the Python version of the KCWI pipeline
 """
 
 # Affiliated packages may add whatever they like to this file, but
@@ -10,6 +8,13 @@ stand-alone processing or as part of a pipeline.
 # ----------------------------------------------------------------------------
 from ._astropy_init import *
 # ----------------------------------------------------------------------------
+from .ccd_primitives import CcdPrimitives
+from .imgmath_primitives import ImgmathPrimitives
+from .proctab_primitives import ProctabPrimives
+from .kcwi_objects import KcwiCCD
+from astropy import log
+from astropy import ccdproc
+import os
 
 # set up namespace, unless we are in setup...
 if not _ASTROPY_SETUP_:
@@ -21,7 +26,7 @@ if not _ASTROPY_SETUP_:
 
     class Conf(_config.ConfigNamespace):
         """
-        Configuration parameters for ccdproc.
+        Configuration parameters for KCWIPyDRP.
         """
         auto_logging = _config.ConfigItem(
             True,
@@ -30,3 +35,12 @@ if not _ASTROPY_SETUP_:
             'when calling processing operations.'
             )
     conf = Conf()
+
+class PrimitiveBASE():
+    def __init__(self):
+        self.frame = None
+        self.log = log
+        self.log.enable_color()
+
+    def set_frame(self, frame):
+        self.frame = frame
