@@ -1,7 +1,11 @@
-class ProctabPrimives(PrimitivesBASE):
+from KCWIPyDRP import PrimitivesBASE
+from astropy.table import Table
+import os
+
+class ProctabPrimitives(PrimitivesBASE):
 
     def __init__(self):
-        super(ProctabPrimives, self).__init__()
+        super(ProctabPrimitives, self).__init__()
 
     def new_proctab(self):
         cnames = ('CID', 'TYPE', 'CAM', 'GRAT', 'GANG', 'CWAVE', 'BIN', 'FILT',
@@ -17,10 +21,10 @@ class ProctabPrimives(PrimitivesBASE):
 
     def read_proctab(self, tfil='kcwi.proc'):
         if os.path.isfile(tfil):
-            log.info("reading proc table file: %s" % tfil)
+            self.log.info("reading proc table file: %s" % tfil)
             self.proctab = Table.read(tfil, format='ascii')
         else:
-            log.info("proc table file not found: %s" % tfil)
+            self.log.info("proc table file not found: %s" % tfil)
             self.new_proctab()
         # format columns
         self.proctab['GANG'].format = '7.2f'
@@ -40,9 +44,9 @@ class ProctabPrimives(PrimitivesBASE):
 
             self.proctab.write(filename=tfil, format='ascii',
                                overwrite=over_write)
-            log.info("writing proc table file: %s" % tfil)
+            self.log.info("writing proc table file: %s" % tfil)
         else:
-            log.info("no proc table to write")
+            self.log.info("no proc table to write")
 
     def update_proctab(self, suffix='raw', newtype=None):
         if self.frame is not None and self.proctab is not None:

@@ -8,13 +8,7 @@ The KCWIPyDRP is the Python version of the KCWI pipeline
 # ----------------------------------------------------------------------------
 from ._astropy_init import *
 # ----------------------------------------------------------------------------
-from .ccd_primitives import CcdPrimitives
-from .imgmath_primitives import ImgmathPrimitives
-from .proctab_primitives import ProctabPrimives
-from .kcwi_objects import KcwiCCD
 from astropy import log
-from astropy import ccdproc
-import os
 
 # set up namespace, unless we are in setup...
 if not _ASTROPY_SETUP_:
@@ -36,7 +30,7 @@ if not _ASTROPY_SETUP_:
             )
     conf = Conf()
 
-class PrimitiveBASE():
+class PrimitivesBASE():
     def __init__(self):
         self.frame = None
         self.log = log

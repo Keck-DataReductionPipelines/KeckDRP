@@ -1,7 +1,11 @@
-from astropy.table import Table
+from KCWIPyDRP import PrimitivesBASE
+from ..core import CcdPrimitives
+from ..core import ImgmathPrimitives
+from ..core import ProctabPrimitives
+import os
 
 
-class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
+class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
 
     def __init__(self):
         super(KcwiPrimitives, self).__init__()
@@ -12,7 +16,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
             outfn = os.path.join(outdir,
                                  origfn.split('.')[0]+'_'+suffix+'.fits')
             self.frame.write(outfn)
-            log.info("output file: %s" % outfn)
+            self.log.info("output file: %s" % outfn)
 
     def subtract_scattered_light(self):
         log.info("subtract_scattered_light")

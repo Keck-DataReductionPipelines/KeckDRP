@@ -17,17 +17,17 @@ def make_master_flat(p, frame):
     p.write_proctab()
     # output file
     p.write_image(suffix='int')
-    log.info("flat reduced")
+    p.log.info("flat reduced")
     # how many flats do we have?
     combine_list = p.n_proctab(targtype='FLATLAMP')
-    log.info("number of flats = %d" % len(combine_list))
+    p.log.info("number of flats = %d" % len(combine_list))
     # create master flat
     if len(combine_list) >= 6:
         p.img_combine(combine_list, suffix='int', indir='redux')
         # output file and update proc table
         p.update_proctab(suffix='mfimg', newtype='FLAT')
         p.write_image(suffix='mfimg')
-        log.info("master flat produced")
+        p.log.info("master flat produced")
     else:
-        log.info("need 6 flats to produce master")
+        p.log.info("need 6 flats to produce master")
     p.write_proctab()
