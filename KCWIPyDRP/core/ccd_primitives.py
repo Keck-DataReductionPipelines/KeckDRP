@@ -1,19 +1,19 @@
-from astropy import log
+from KCWIPyDRP import PrimitivesBASE
 import numpy as np
 
 
-class CcdPrimitives:
+class CcdPrimitives(PrimitivesBASE):
 
-    def set_frame(self, frame):
-        self.frame = frame
+    def __init__(self):
+        super(CcdPrimitives, self).__init__()
 
     def subtract_bias(self):
         tab = self.n_proctab(targtype='MBIAS')
-        log.info("%d master bias frames found" % len(tab))
+        self.log.info("%d master bias frames found" % len(tab))
         self.img_subtract(tab, suffix='mbias', indir='redux')
 
     def subtract_oscan(self):
-        log.info("subtract_oscan")
+        self.log.info("subtract_oscan")
 
     def trim_oscan(self):
         bsec, dsec, tsec, direc = self.map_ccd()
@@ -44,19 +44,19 @@ class CcdPrimitives:
         self.frame.header['NAXIS1'] = max_sec[3] + 1
         self.frame.header['NAXIS2'] = max_sec[1] + 1
 
-        log.info("trim_oscan")
+        self.log.info("trim_oscan")
 
     def correct_gain(self):
-        log.info("correct_gain")
+        self.log.info("correct_gain")
 
     def remove_crs(self):
-        log.info("remove_crs")
+        self.log.info("remove_crs")
 
     def remove_badcols(self):
-        log.info("remove_badcols")
+        self.log.info("remove_badcols")
 
     def rectify_image(self):
-        log.info("rectify_image")
+        self.log.info("rectify_image")
 
     def parse_imsec(self, section_key=None):
         # forward read?
@@ -171,7 +171,7 @@ class CcdPrimitives:
                 y1 = -1
                 x0 = -1
                 x1 = -1
-                log.info("ERROR - bad amp number: %d" % i)
+                self.log.info("ERROR - bad amp number: %d" % i)
             tsec.append((y0, y1, x0, x1))
 
         return bsec, dsec, tsec, direc

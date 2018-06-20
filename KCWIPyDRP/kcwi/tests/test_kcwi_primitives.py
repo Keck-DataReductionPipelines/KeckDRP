@@ -1,7 +1,7 @@
 # from KCWIPyDRP.ccd_primitives import CcdPrimitives
 # from KCWIPyDRP.imgmath_primitives import ImgmathPrimitives
-from KCWIPyDRP import kcwi_primitives
-from KCWIPyDRP import kcwi_objects
+from .. import kcwi_primitives
+from .. import kcwi_objects
 # from astropy import log
 # from astropy.table import Table
 import numpy as np

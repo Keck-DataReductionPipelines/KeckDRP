@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-from KCWIPyDRP import kcwi_primitives
+from KCWIPyDRP.kcwi import kcwi_primitives
 import argparse
 import importlib
 import os, glob, time, sys
-from KCWIPyDRP.kcwi_objects import KcwiCCD
+from KCWIPyDRP.kcwi.kcwi_objects import KcwiCCD
 from astropy import log
 global log
 log.setLevel('INFO')
@@ -42,7 +42,7 @@ def go(image, rcp):
         log.info("Checking %s header for recipe" % image)
         quit()
 
-    mymodule = importlib.import_module("KCWIPyDRP.recipes."+str(rcp))
+    mymodule = importlib.import_module("KCWIPyDRP.kcwi.recipes."+str(rcp))
     recipe = getattr(mymodule, rcp)
 
     # load the frame and instantiate the object

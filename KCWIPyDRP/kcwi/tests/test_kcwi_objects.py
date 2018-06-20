@@ -1,5 +1,5 @@
 from astropy.nddata import CCDData
-from KCWIPyDRP.kcwi_objects import KcwiCCD
+from KCWIPyDRP.kcwi.kcwi_objects import KcwiCCD
 import pytest
 import numpy as np
 from astropy.utils import NumpyRNGContext

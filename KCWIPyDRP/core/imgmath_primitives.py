@@ -1,13 +1,12 @@
-from astropy import log
-from KCWIPyDRP.kcwi_objects import KcwiCCD
-import ccdproc
 import os
+from ..kcwi.kcwi_objects import KcwiCCD
+import ccdproc
 
 
 class ImgmathPrimitives:
 
-    def set_frame(self, frame):
-        self.frame = frame
+    def __init__(self):
+        super(ImgmathPrimitives, self).__init__()
 
     def img_combine(self, tab=None, ctype='bias', indir=None, suffix=None,
                     method='average', unit='adu'):
@@ -27,7 +26,7 @@ class ImgmathPrimitives:
             stack = []
             for f in flist:
                 infile = os.path.join(pref, f.split('.')[0] + suff)
-                log.info("reading image: %s" % infile)
+                self.log.info("reading image: %s" % infile)
                 stack.append(KcwiCCD.read(infile, unit=unit))
             if 'bias' in ctype:
                 self.set_frame(ccdproc.combine(stack, method=method,
@@ -36,9 +35,9 @@ class ImgmathPrimitives:
                                                sigma_clip_high_thresh=2.0))
             else:
                 self.set_frame(ccdproc.combine(stack, method=method))
-            log.info("img_combine %s using %s" % (type, method))
+            self.log.info("img_combine %s using %s" % (type, method))
         else:
-            log.info("something went wrong with img_combine")
+            self.log.info("something went wrong with img_combine")
 
     def img_subtract(self, tab=None, indir=None, suffix=None, unit='adu'):
         if tab is not None:
@@ -57,7 +56,7 @@ class ImgmathPrimitives:
             subtrahend = None
             for f in flist:
                 infile = os.path.join(pref, f.split('.')[0] + suff)
-                log.info("reading image to subtract: %s" % infile)
+                self.log.info("reading image to subtract: %s" % infile)
                 subtrahend = KcwiCCD.read(infile, unit=unit)
 
             if subtrahend is not None:
@@ -65,9 +64,9 @@ class ImgmathPrimitives:
                 result.meta = self.frame.meta
 
             self.set_frame(result)
-            log.info("img_subtract")
+            self.log.info("img_subtract")
         else:
-            log.info("something went wrong with img_subtract")
+            self.log.info("something went wrong with img_subtract")
 
     def img_divide(self):
-        log.info("img_divide")
+        self.log.info("img_divide")

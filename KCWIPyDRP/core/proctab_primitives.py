@@ -1,25 +1,11 @@
-from KCWIPyDRP.ccd_primitives import CcdPrimitives
-from KCWIPyDRP.imgmath_primitives import ImgmathPrimitives
-from astropy import log
+from KCWIPyDRP import PrimitivesBASE
 from astropy.table import Table
 import os
 
+class ProctabPrimitives(PrimitivesBASE):
 
-class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
-
-    def set_frame(self, frame):
-        self.frame = frame
-
-    def write_image(self, suffix=None, outdir='redux'):
-        if suffix is not None:
-            origfn = self.frame.header['OFNAME']
-            outfn = os.path.join(outdir,
-                                 origfn.split('.')[0]+'_'+suffix+'.fits')
-            self.frame.write(outfn)
-            log.info("output file: %s" % outfn)
-
-    def subtract_scattered_light(self):
-        log.info("subtract_scattered_light")
+    def __init__(self):
+        super(ProctabPrimitives, self).__init__()
 
     def new_proctab(self):
         cnames = ('CID', 'TYPE', 'CAM', 'GRAT', 'GANG', 'CWAVE', 'BIN', 'FILT',
@@ -35,10 +21,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
 
     def read_proctab(self, tfil='kcwi.proc'):
         if os.path.isfile(tfil):
-            log.info("reading proc table file: %s" % tfil)
+            self.log.info("reading proc table file: %s" % tfil)
             self.proctab = Table.read(tfil, format='ascii')
         else:
-            log.info("proc table file not found: %s" % tfil)
+            self.log.info("proc table file not found: %s" % tfil)
             self.new_proctab()
         # format columns
         self.proctab['GANG'].format = '7.2f'
@@ -58,9 +44,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives):
 
             self.proctab.write(filename=tfil, format='ascii',
                                overwrite=over_write)
-            log.info("writing proc table file: %s" % tfil)
+            self.log.info("writing proc table file: %s" % tfil)
         else:
-            log.info("no proc table to write")
+            self.log.info("no proc table to write")
 
     def update_proctab(self, suffix='raw', newtype=None):
         if self.frame is not None and self.proctab is not None:
