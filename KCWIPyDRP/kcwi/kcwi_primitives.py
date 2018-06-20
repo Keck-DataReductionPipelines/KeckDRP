@@ -19,4 +19,4 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
             self.log.info("output file: %s" % outfn)
 
     def subtract_scattered_light(self):
-        log.info("subtract_scattered_light")
+        self.log.info("subtract_scattered_light")

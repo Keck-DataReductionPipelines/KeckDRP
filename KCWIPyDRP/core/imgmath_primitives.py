@@ -2,6 +2,7 @@ import os
 from ..kcwi.kcwi_objects import KcwiCCD
 import ccdproc
 
+
 class ImgmathPrimitives:
 
     def __init__(self):

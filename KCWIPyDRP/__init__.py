@@ -30,6 +30,7 @@ if not _ASTROPY_SETUP_:
             )
     conf = Conf()
 
+
 class PrimitivesBASE():
     def __init__(self):
         self.frame = None
