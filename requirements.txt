@@ -1,2 +1,4 @@
 astropy
 ccdproc
+numpy
+scipy

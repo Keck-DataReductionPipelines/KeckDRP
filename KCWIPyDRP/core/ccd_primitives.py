@@ -1,5 +1,6 @@
 from KCWIPyDRP import PrimitivesBASE
 import numpy as np
+import pylab as pl
 
 
 class CcdPrimitives(PrimitivesBASE):
@@ -11,9 +12,62 @@ class CcdPrimitives(PrimitivesBASE):
         tab = self.n_proctab(targtype='MBIAS')
         self.log.info("%d master bias frames found" % len(tab))
         self.img_subtract(tab, suffix='mbias', indir='redux')
+        self.frame.header['BIASSUB'] = True
+        logstr = self.subtract_bias.__module__ + "." + \
+                 self.subtract_bias.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(logstr)
 
     def subtract_oscan(self):
-        self.log.info("subtract_oscan")
+        bsec, dsec, tsec, direc = self.map_ccd()
+        namps = len(bsec)
+        # parameters
+        oscanbuf = 20
+        minoscan = 75
+        if namps == 4:
+            porder = 2
+        else:
+            porder = 7
+        # loop over amps
+        for ia in range(namps):
+            if (bsec[ia][3] - bsec[ia][2]) > minoscan:
+                x0 = bsec[ia][2] + oscanbuf
+                x1 = bsec[ia][3] - oscanbuf
+                y0 = bsec[ia][0]
+                y1 = bsec[ia][1] + 1
+                osvec = np.nanmedian(self.frame.data[y0:y1, x0:x1], axis=1)
+                xx = np.arange(len(osvec), dtype=np.float)
+                # fit it
+                if direc[ia]:
+                    # forward read skips first 50 px
+                    oscoef = np.polyfit(xx[50:], osvec[50:], porder)
+                else:
+                    # reverse read skips last 50 px
+                    oscoef = np.polyfit(xx[:-50], osvec[:-50], porder)
+                # plot it
+                osfit = np.polyval(oscoef, xx)
+                pl.plot(osvec)
+                legend = ["oscan", ]
+                pl.plot(osfit)
+                legend.append("fit")
+                pl.xlabel("pixel")
+                pl.ylabel("DN")
+                pl.legend(legend)
+                pl.title("img #%d amp #%d" % (self.frame.header['FRAMENO'],
+                                              (ia+1)))
+                pl.show()
+                # subtract it
+                for ix in range(dsec[ia][2], dsec[ia][3]):
+                    self.frame.data[y0:y1, ix] -= osfit
+                self.frame.header['OSCANSUB'] = True
+            else:
+                self.log.info("not enough overscan to fit amp %d")
+                self.frame.header['OSCANSUB'] = False
+
+        logstr = self.subtract_oscan.__module__ + "." + \
+                 self.subtract_oscan.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(logstr)
 
     def trim_oscan(self):
         bsec, dsec, tsec, direc = self.map_ccd()
@@ -44,7 +98,10 @@ class CcdPrimitives(PrimitivesBASE):
         self.frame.header['NAXIS1'] = max_sec[3] + 1
         self.frame.header['NAXIS2'] = max_sec[1] + 1
 
-        self.log.info("trim_oscan")
+        logstr = self.trim_oscan.__module__ + "." + \
+                 self.trim_oscan.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(logstr)
 
     def correct_gain(self):
         self.log.info("correct_gain")
