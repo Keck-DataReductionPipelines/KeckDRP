@@ -59,7 +59,7 @@ class ImgmathPrimitives(PrimitivesBASE):
             self.log.info("%s %s using %s" % (self.img_combine.__name__,
                                               ctype, method))
         else:
-            self.log.info("something went wrong with img_combine")
+            self.log.error("something went wrong with img_combine")
 
     def img_subtract(self, tab=None, indir=None, suffix=None, unit='adu',
                      keylog=None):
@@ -97,9 +97,9 @@ class ImgmathPrimitives(PrimitivesBASE):
                 self.frame.header['HISTORY'] = logstr
                 self.log.info(self.img_subtract.__qualname__)
             else:
-                self.log.info("Error - empty subtrahend")
+                self.log.error("Error - empty subtrahend")
         else:
-            self.log.info("no image found to subtract")
+            self.log.error("no image found to subtract")
 
     def img_divide(self):
         self.log.info("img_divide")

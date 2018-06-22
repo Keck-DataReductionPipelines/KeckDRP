@@ -2,9 +2,11 @@ from KCWIPyDRP import PrimitivesBASE
 from astropy.table import Table
 import os
 
+
 class ProctabPrimitives(PrimitivesBASE):
 
     def __init__(self):
+        self.proctab = None
         super(ProctabPrimitives, self).__init__()
 
     def new_proctab(self):
@@ -64,9 +66,6 @@ class ProctabPrimitives(PrimitivesBASE):
                 stage = 9
             if newtype is not None:
                 self.frame.header['IMTYPE'] = newtype
-            # output file
-            # if stage > 0:
-            #    self.write_image(suffix=suffix)
             # new row for proc table
             new_row = [self.frame.header['STATEID'],
                        self.frame.header['IMTYPE'],
@@ -93,3 +92,10 @@ class ProctabPrimitives(PrimitivesBASE):
             tab = None
 
         return tab
+
+    def in_proctab(self):
+        imno_list = self.proctab['FRAMENO']
+        if self.frame.header['FRAMENO'] in imno_list:
+            return True
+        else:
+            return False
