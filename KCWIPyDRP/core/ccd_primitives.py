@@ -11,19 +11,21 @@ class CcdPrimitives(PrimitivesBASE):
     def subtract_bias(self):
         tab = self.n_proctab(targtype='MBIAS')
         self.log.info("%d master bias frames found" % len(tab))
-        self.img_subtract(tab, suffix='mbias', indir='redux')
-        self.frame.header['BIASSUB'] = True
+        self.img_subtract(tab, suffix='mbias', indir='redux',
+                          keylog='MBFILE', keycom='master bias file')
+        self.frame.header['BIASSUB'] = (True, 'was master bias subtracted?')
         logstr = self.subtract_bias.__module__ + "." + \
                  self.subtract_bias.__qualname__
         self.frame.header['HISTORY'] = logstr
-        self.log.info(logstr)
+        self.log.info(self.subtract_bias.__qualname__)
 
     def subtract_oscan(self):
         bsec, dsec, tsec, direc = self.map_ccd()
         namps = len(bsec)
         # parameters
-        oscanbuf = 20
-        minoscan = 75
+        oscanbuf = self.conf.OSCANBUF
+        minoscan = self.conf.MINOSCANPIX
+        interactive = self.conf.INTER
         if namps == 4:
             porder = 2
         else:
@@ -46,6 +48,7 @@ class CcdPrimitives(PrimitivesBASE):
                     oscoef = np.polyfit(xx[:-50], osvec[:-50], porder)
                 # plot it
                 osfit = np.polyval(oscoef, xx)
+                pl.ion()
                 pl.plot(osvec)
                 legend = ["oscan", ]
                 pl.plot(osfit)
@@ -53,21 +56,27 @@ class CcdPrimitives(PrimitivesBASE):
                 pl.xlabel("pixel")
                 pl.ylabel("DN")
                 pl.legend(legend)
-                pl.title("img #%d amp #%d" % (self.frame.header['FRAMENO'],
-                                              (ia+1)))
-                pl.show()
+                pl.title("Overscan img #%d amp #%d" % (
+                    self.frame.header['FRAMENO'], (ia+1)))
+                if interactive:
+                    input("Next? <cr>: ")
+                else:
+                    pl.pause(0.5)
+                pl.clf()
                 # subtract it
                 for ix in range(dsec[ia][2], dsec[ia][3]):
                     self.frame.data[y0:y1, ix] -= osfit
-                self.frame.header['OSCANSUB'] = True
+                self.frame.header['OSCANSUB'] = (True,
+                                                 'was overscan subtracted?')
             else:
                 self.log.info("not enough overscan to fit amp %d")
-                self.frame.header['OSCANSUB'] = False
+                self.frame.header['OSCANSUB'] = (False,
+                                                 'was overscan subtracted?')
 
         logstr = self.subtract_oscan.__module__ + "." + \
                  self.subtract_oscan.__qualname__
         self.frame.header['HISTORY'] = logstr
-        self.log.info(logstr)
+        self.log.info(self.subtract_oscan.__qualname__)
 
     def trim_oscan(self):
         bsec, dsec, tsec, direc = self.map_ccd()
@@ -97,11 +106,12 @@ class CcdPrimitives(PrimitivesBASE):
         self.frame.data = new
         self.frame.header['NAXIS1'] = max_sec[3] + 1
         self.frame.header['NAXIS2'] = max_sec[1] + 1
+        self.frame.header['OSCANTRM'] = (True, 'was overscan trimmed?')
 
         logstr = self.trim_oscan.__module__ + "." + \
                  self.trim_oscan.__qualname__
         self.frame.header['HISTORY'] = logstr
-        self.log.info(logstr)
+        self.log.info(self.trim_oscan.__qualname__)
 
     def correct_gain(self):
         self.log.info("correct_gain")

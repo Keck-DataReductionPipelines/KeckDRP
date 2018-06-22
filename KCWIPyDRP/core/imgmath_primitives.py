@@ -10,9 +10,10 @@ class ImgmathPrimitives(PrimitivesBASE):
         super(ImgmathPrimitives, self).__init__()
 
     def img_combine(self, tab=None, ctype='bias', indir=None, suffix=None,
-                    method='average', unit='adu'):
+                    method='average', unit='adu', keylog=None, keycom=None):
         if tab is not None:
             flist = tab['OFNAME']
+            imnos = tab['FRAMENO']
 
             if indir is None:
                 pref = '.'
@@ -39,16 +40,29 @@ class ImgmathPrimitives(PrimitivesBASE):
             # or combine any other type
             else:
                 self.set_frame(ccdproc.combine(stack, method=method))
-            self.frame.header['NSTACK'] = len(stack)
-            self.frame.header['STCKMETH'] = method
+            self.frame.header['NSTACK'] = (len(stack),
+                                           'number of images stacked')
+            self.frame.header['STCKMETH'] = (method,
+                                             'method for stacking')
+            # do we log list in header?
+            if keylog is not None:
+                # make a list of image numbers string
+                imnos_str = ','.join(str(e) for e in imnos)
+                card = (imnos_str, '')
+                # was a keyword comment provided?
+                if keylog is not None:
+                    card = (imnos_str, keycom)
+                self.frame.header[keylog] = card
             logstr = self.img_combine.__module__ + "." + \
                      self.img_combine.__qualname__
             self.frame.header['HISTORY'] = logstr
-            self.log.info("%s %s using %s" % (logstr, type, method))
+            self.log.info("%s %s using %s" % (self.img_combine.__name__,
+                                              ctype, method))
         else:
             self.log.info("something went wrong with img_combine")
 
-    def img_subtract(self, tab=None, indir=None, suffix=None, unit='adu'):
+    def img_subtract(self, tab=None, indir=None, suffix=None, unit='adu',
+                     keylog=None, keycom=None):
         if tab is not None:
             flist = tab['OFNAME']
 
@@ -71,11 +85,17 @@ class ImgmathPrimitives(PrimitivesBASE):
             if subtrahend is not None:
                 result = self.frame.subtract(subtrahend)
                 result.meta = self.frame.meta
-
-            self.set_frame(result)
-            self.log.info("img_subtract")
+                self.set_frame(result)
+                if keylog is not None:
+                    self.frame.header[keylog] = infile
+                logstr = self.img_subtract.__module__ + "." + \
+                         self.img_subtract.__qualname__
+                self.frame.header['HISTORY'] = logstr
+                self.log.info(self.img_subtract.__qualname__)
+            else:
+                self.log.info("Error - empty subtrahend")
         else:
-            self.log.info("something went wrong with img_subtract")
+            self.log.info("no image found to subtract")
 
     def img_divide(self):
         self.log.info("img_divide")

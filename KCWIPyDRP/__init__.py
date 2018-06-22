@@ -22,9 +22,21 @@ if not _ASTROPY_SETUP_:
         """
         Configuration parameters for KCWIPyDRP.
         """
-        CRZAP= _config.ConfigItem(
+        CRZAP = _config.ConfigItem(
             True,
             'Perform cosmic ray rejection'
+            )
+        INTER = _config.ConfigItem(
+            True,
+            'Interactive operation'
+            )
+        MINOSCANPIX = _config.ConfigItem(
+            75,
+            'Minimum number of pixels for overscan'
+            )
+        OSCANBUF = _config.ConfigItem(
+            20,
+            'Pixel buffer to exclude at edges of overscan'
             )
     conf = Conf()
 
@@ -34,6 +46,7 @@ class PrimitivesBASE():
         self.frame = None
         self.log = log
         self.log.enable_color()
+        self.conf = conf
 
     def set_frame(self, frame):
         self.frame = frame
