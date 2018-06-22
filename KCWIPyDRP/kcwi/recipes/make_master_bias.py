@@ -14,7 +14,7 @@ def make_master_bias(p, frame):
     p.log.info("number of biases = %d" % len(combine_list))
     # create master bias
     if len(combine_list) >= 7:
-        p.img_combine(combine_list)
+        p.img_combine(combine_list, keylog='BIASLIST')
         # output file and update proc table
         p.update_proctab(suffix='mbias', newtype='MBIAS')
         p.write_image(suffix='mbias')

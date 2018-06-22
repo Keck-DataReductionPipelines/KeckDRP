@@ -9,6 +9,7 @@ The KCWIPyDRP is the Python version of the KCWI pipeline
 from ._astropy_init import *
 # ----------------------------------------------------------------------------
 from astropy import log
+from .lookups import keyword_comments
 
 # set up namespace, unless we are in setup...
 if not _ASTROPY_SETUP_:
@@ -30,6 +31,10 @@ if not _ASTROPY_SETUP_:
             True,
             'Interactive operation'
             )
+        PLOTPAUSE = _config.ConfigItem(
+            0.5,
+            'Pause length between plots in seconds'
+            )
         MINOSCANPIX = _config.ConfigItem(
             75,
             'Minimum number of pixels for overscan'
@@ -47,6 +52,7 @@ class PrimitivesBASE():
         self.log = log
         self.log.enable_color()
         self.conf = conf
+        self.keyword_comments = keyword_comments.keyword_comments
 
     def set_frame(self, frame):
         self.frame = frame
