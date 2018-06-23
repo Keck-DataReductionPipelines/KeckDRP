@@ -43,10 +43,14 @@ if not _ASTROPY_SETUP_:
             20,
             'Pixel buffer to exclude at edges of overscan'
             )
+        CLOBBER = _config.ConfigItem(
+            False,
+            'Overwrite output images?'
+            )
     conf = Conf()
 
 
-class PrimitivesBASE():
+class PrimitivesBASE:
     def __init__(self):
         self.frame = None
         self.log = log

@@ -14,7 +14,17 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
             origfn = self.frame.header['OFNAME']
             outfn = os.path.join(outdir,
                                  origfn.split('.')[0]+'_'+suffix+'.fits')
-            self.frame.write(outfn)
+            if not os.path.exists(outfn) or self.conf.CLOBBER:
+                self.frame.write(outfn)
+                self.log.info("output file: %s" % outfn)
+            elif os.path.exists(outfn):
+                self.log.error("output file exists: %s" % outfn)
+
+    def write_geom(self, suffix=None, outdir='redux'):
+        if suffix is not None:
+            origfn = self.frame.header['OFNAME']
+            outfn = os.path.join(outdir,
+                                 origfn.split('.')[0]+'_'+suffix+'.fits')
             self.log.info("output file: %s" % outfn)
 
     def subtract_bias(self):
@@ -29,3 +39,21 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
 
     def subtract_scattered_light(self):
         self.log.info("subtract_scattered_light")
+
+    def solve_geom(self):
+        self.log.info("solve_geom")
+
+    def apply_flat(self):
+        self.log.info("apply_flat")
+
+    def subtract_sky(self):
+        self.log.info("subtract_sky")
+
+    def make_cube(self):
+        self.log.info("make_cube")
+
+    def apply_dar_correction(self):
+        self.log.info("apply_dar_correction")
+
+    def flux_calibrate(self):
+        self.log.info("flux_calibrate")
