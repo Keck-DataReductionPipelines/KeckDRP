@@ -7,8 +7,6 @@ def make_master_geom(p, frame):
     if p.in_proctab():
         p.log.warning("Already processed")
     else:
-        p.subtract_bias()
-        p.subtract_oscan()
         p.trim_oscan()
         p.correct_gain()
         p.remove_badcols()

@@ -10,10 +10,10 @@ class ProctabPrimitives(PrimitivesBASE):
         super(ProctabPrimitives, self).__init__()
 
     def new_proctab(self):
-        cnames = ('CID', 'TYPE', 'CAM', 'GRAT', 'GANG', 'CWAVE', 'BIN', 'FILT',
-                  'MJD', 'FRAMENO', 'STAGE', 'SUFF', 'OFNAME')
-        dtypes = ('S24', 'S9', 'S4', 'S5', 'float64', 'float64', 'S4', 'S5',
-                  'float64', 'int32', 'int32', 'S5', 'S25')
+        cnames = ('CID', 'DID', 'TYPE', 'CAM', 'GRAT', 'GANG', 'CWAVE', 'BIN',
+                  'FILT', 'MJD', 'FRAMENO', 'STAGE', 'SUFF', 'OFNAME', 'OBJECT')
+        dtypes = ('S24', 'int64', 'S9', 'S4', 'S5', 'float64', 'float64', 'S4',
+                  'S5', 'float64', 'int32', 'int32', 'S5', 'S25', 'S25')
         meta = {'KCWI DRP PROC TABLE': 'new table'}
         self.proctab = Table(names=cnames, dtype=dtypes, meta=meta)
         # prevent string column truncation
@@ -68,6 +68,7 @@ class ProctabPrimitives(PrimitivesBASE):
                 self.frame.header['IMTYPE'] = newtype
             # new row for proc table
             new_row = [self.frame.header['STATEID'],
+                       self.frame.header['CCDCFG'],
                        self.frame.header['IMTYPE'],
                        self.frame.header['CAMERA'],
                        self.frame.header['BGRATNAM'],
@@ -79,7 +80,8 @@ class ProctabPrimitives(PrimitivesBASE):
                        self.frame.header['FRAMENO'],
                        stage,
                        suffix,
-                       self.frame.header['OFNAME']]
+                       self.frame.header['OFNAME'],
+                       self.frame.header['OBJECT'].replace(" ", "")]
         else:
             new_row = None
         self.proctab.add_row(new_row)
@@ -87,10 +89,12 @@ class ProctabPrimitives(PrimitivesBASE):
     def n_proctab(self, targtype=None):
         if targtype is not None and self.proctab is not None:
             tab = self.proctab[(self.proctab['TYPE'] == targtype)]
-            tab = tab[(tab['CID'] == self.frame.header['STATEID'])]
+            if 'BIAS' in targtype:
+                tab = tab[(tab['DID'] == int(self.frame.header['CCDCFG']))]
+            else:
+                tab = tab[(tab['CID'] == self.frame.header['STATEID'])]
         else:
             tab = None
-
         return tab
 
     def in_proctab(self):

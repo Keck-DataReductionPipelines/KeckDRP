@@ -1,0 +1,9 @@
+scheme for image data: uint16, float64, etc.
+IMTYPE for standard stars
+scheme for sky subtraction using another image, defaults to self-sky
+solve geometry
+re-sampling with flux conservation
+fill out primitives
+bad column data
+flux standard spectra
+atlas spectra

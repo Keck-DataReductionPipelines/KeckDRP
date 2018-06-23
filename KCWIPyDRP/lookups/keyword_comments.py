@@ -8,5 +8,7 @@ keyword_comments = {
     "OSCANSUB": "was overscan subtracted?",
     "OSCANTRM": "was overscan trimmed?",
     "FLATLIST": "flat img #s combined",
-    "MFFILE": "master flat file"
+    "MFFILE": "master flat file",
+    "DOMELIST": "dome img #s combined",
+    "MDOMEFIL": "master dome file"
 }

@@ -43,19 +43,34 @@ def main_loop(frame=None, recipe=None, loop=None, imlist=None):
 
 
 def go(image, rcp):
-    if rcp is None:
-        log.info("Checking %s header for recipe" % image)
-        quit()
-
-    mymodule = importlib.import_module("KCWIPyDRP.kcwi.recipes."+str(rcp))
-    recipe = getattr(mymodule, rcp)
 
     # load the frame and instantiate the object
     if os.path.isfile(image):
         frame = KcwiCCD.read(image, unit='adu')
     else:
-        log.info("The specified file (%s) does not exist" % (image))
+        log.error("The specified file (%s) does not exist" % image)
         sys.exit(1)
+
+    if rcp is None:
+        log.info("Checking %s header for recipe" % image)
+        imtype = frame.header['IMTYPE']
+        if 'BIAS' in imtype:
+            rcp = 'make_master_bias'
+        elif 'CONTBARS' in imtype or 'ARCLAMP' in imtype:
+            rcp = 'make_master_geom'
+        elif 'FLATLAMP' in imtype:
+            rcp = 'make_master_flat'
+        elif 'DOMEFLAT' in imtype:
+            rcp = 'make_master_dome'
+        elif 'OBJECT' in imtype:
+            rcp = 'make_science'
+        else:
+            log.error("Unable to determine recipe from IMTYPE: %s", imtype)
+            sys.exit(1)
+        log.info("%s => %s" % (imtype, rcp))
+
+    mymodule = importlib.import_module("KCWIPyDRP.kcwi.recipes." + str(rcp))
+    recipe = getattr(mymodule, rcp)
 
     log.info("\n---  Reducing frame %s with recipe: %s ---" % (image, rcp))
     p = kcwi_primitives.KcwiPrimitives()
@@ -65,6 +80,7 @@ def go(image, rcp):
 def check_redux_dir():
     if not os.path.isdir(conf.REDUXDIR):
         os.makedirs(conf.REDUXDIR)
+        log.info("Output directory created: %s" % conf.REDUXDIR)
 
 
 if __name__ == '__main__':
@@ -82,19 +98,14 @@ if __name__ == '__main__':
 
     check_redux_dir()
 
-    if args.recipe is None:
-        log.info("Must supply a recipe")
+    if args.frame:
+        log.info("reducing image %s" % args.frame)
+        main_loop(frame=args.frame, recipe=args.recipe)
+    elif args.loop:
+        log.info("reducing in a loop")
+        main_loop(loop=args.loop, recipe=args.recipe)
+    elif args.imlist:
+        log.info("reducing images in list in %s" % args.imlist)
+        main_loop(imlist=args.imlist, recipe=args.recipe)
     else:
-        if args.frame:
-            log.info("applying recipe %s to image %s" % (args.recipe,
-                                                         args.frame))
-            main_loop(frame=args.frame, recipe=args.recipe)
-        elif args.loop:
-            log.info("applying recipe %s in a loop" % args.recipe)
-            main_loop(recipe=args.recipe, loop=args.loop)
-        elif args.imlist:
-            log.info("applying recipe %s to img list in %s" % (args.recipe,
-                                                               args.imlist))
-            main_loop(recipe=args.recipe, imlist=args.imlist)
-        else:
-            log.info("Must supply an image or a list, or loop")
+        log.info("Must supply an image or a list, or loop")
