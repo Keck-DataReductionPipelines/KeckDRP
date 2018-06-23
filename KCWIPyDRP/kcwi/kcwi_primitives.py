@@ -9,23 +9,27 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
     def __init__(self):
         super(KcwiPrimitives, self).__init__()
 
-    def write_image(self, suffix=None, outdir='redux'):
+    def write_image(self, suffix=None):
         if suffix is not None:
             origfn = self.frame.header['OFNAME']
-            outfn = os.path.join(outdir,
+            outfn = os.path.join(self.conf.REDUXDIR,
                                  origfn.split('.')[0]+'_'+suffix+'.fits')
-            if not os.path.exists(outfn) or self.conf.CLOBBER:
-                self.frame.write(outfn)
-                self.log.info("output file: %s" % outfn)
-            elif os.path.exists(outfn):
+            if not self.conf.OVERWRITE and os.path.exists(outfn):
                 self.log.error("output file exists: %s" % outfn)
+            else:
+                self.frame.write(outfn, overwrite=self.conf.OVERWRITE)
+                self.log.info("output file: %s" % outfn)
 
-    def write_geom(self, suffix=None, outdir='redux'):
+    def write_geom(self, suffix=None):
         if suffix is not None:
             origfn = self.frame.header['OFNAME']
-            outfn = os.path.join(outdir,
+            outfn = os.path.join(self.conf.REDUXDIR,
                                  origfn.split('.')[0]+'_'+suffix+'.fits')
-            self.log.info("output file: %s" % outfn)
+            if not self.conf.OVERWRITE and os.path.exists(outfn):
+                self.log.error("output file exists: %s" % outfn)
+            else:
+                # geometry writer goes here
+                self.log.info("output file: %s" % outfn)
 
     def subtract_bias(self):
         tab = self.n_proctab(targtype='MBIAS')
@@ -36,6 +40,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
                  self.subtract_bias.__qualname__
         self.frame.header['HISTORY'] = logstr
         self.log.info(self.subtract_bias.__qualname__)
+
+    def fit_flat(self):
+        self.log.info("fit_flat")
 
     def subtract_scattered_light(self):
         self.log.info("subtract_scattered_light")
@@ -57,3 +64,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
 
     def flux_calibrate(self):
         self.log.info("flux_calibrate")
+
+    def make_invsensitivity(self):
+        self.log.info("make_invsensitivity")

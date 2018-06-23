@@ -7,6 +7,7 @@ import glob
 import time
 import sys
 from KCWIPyDRP.kcwi.kcwi_objects import KcwiCCD
+from KCWIPyDRP import conf
 from astropy import log
 
 log.setLevel('INFO')
@@ -61,6 +62,11 @@ def go(image, rcp):
     recipe(p, frame)
 
 
+def check_redux_dir():
+    if not os.path.isdir(conf.REDUXDIR):
+        os.makedirs(conf.REDUXDIR)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=
                                      """Perform a reduction.
@@ -73,6 +79,8 @@ if __name__ == '__main__':
     parser.add_argument('frame', nargs='?', type=str, help='input image file')
 
     args = parser.parse_args()
+
+    check_redux_dir()
 
     if args.recipe is None:
         log.info("Must supply a recipe")
@@ -90,4 +98,3 @@ if __name__ == '__main__':
             main_loop(recipe=args.recipe, imlist=args.imlist)
         else:
             log.info("Must supply an image or a list, or loop")
-

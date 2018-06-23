@@ -28,7 +28,7 @@ if not _ASTROPY_SETUP_:
             'Perform cosmic ray rejection'
             )
         INTER = _config.ConfigItem(
-            True,
+            False,
             'Interactive operation'
             )
         PLOTPAUSE = _config.ConfigItem(
@@ -43,10 +43,14 @@ if not _ASTROPY_SETUP_:
             20,
             'Pixel buffer to exclude at edges of overscan'
             )
-        CLOBBER = _config.ConfigItem(
-            False,
+        OVERWRITE = _config.ConfigItem(
+            True,
             'Overwrite output images?'
             )
+        REDUXDIR = _config.ConfigItem(
+            "redux",
+            'Directory for reduced data'
+        )
     conf = Conf()
 
 

@@ -25,11 +25,14 @@ def make_master_flat(p, frame):
         p.log.info("number of flats = %d" % len(combine_list))
         # create master flat
         if len(combine_list) >= 6:
-            p.img_combine(combine_list, unit=None, suffix='int', indir='redux',
-                          keylog='FLATLIST')
+            p.img_combine(combine_list, unit=None, suffix='int',
+                          indir=p.conf.REDUXDIR, keylog='FLATLIST')
             # output file and update proc table
             p.update_proctab(suffix='mfimg', newtype='FLAT')
             p.write_image(suffix='mfimg')
+            p.log.info("flat stack produced")
+            p.fit_flat()
+            p.update_proctab(suffix='mflat', newtype='MFLAT')
             p.log.info("master flat produced")
         else:
             p.log.info("need 6 flats to produce master")

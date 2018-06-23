@@ -17,6 +17,7 @@ def make_flux_calibration(p, frame):
         p.subtract_sky()
         p.make_cube()
         p.apply_dar_correction()
+        p.make_invsensitivity()
         p.flux_calibrate()
         # this should eventually be suffix='icube'
         p.write_image(suffix='int')

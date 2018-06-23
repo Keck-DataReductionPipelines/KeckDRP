@@ -6,11 +6,6 @@ import pylab as pl
 class CcdPrimitives(PrimitivesBASE):
 
     def subtract_oscan(self):
-        # parameters
-        oscanbuf = self.conf.OSCANBUF
-        minoscan = self.conf.MINOSCANPIX
-        interactive = self.conf.INTER
-        plpause = self.conf.PLOTPAUSE
         # image sections for each amp
         bsec, dsec, tsec, direc = self.map_ccd()
         namps = len(bsec)
@@ -24,10 +19,10 @@ class CcdPrimitives(PrimitivesBASE):
         # loop over amps
         for ia in range(namps):
             # check if we have enough data to fit
-            if (bsec[ia][3] - bsec[ia][2]) > minoscan:
+            if (bsec[ia][3] - bsec[ia][2]) > self.conf.MINOSCANPIX:
                 # pull out an overscan vector
-                x0 = bsec[ia][2] + oscanbuf
-                x1 = bsec[ia][3] - oscanbuf
+                x0 = bsec[ia][2] + self.conf.OSCANBUF
+                x1 = bsec[ia][3] - self.conf.OSCANBUF
                 y0 = bsec[ia][0]
                 y1 = bsec[ia][1] + 1
                 osvec = np.nanmedian(self.frame.data[y0:y1, x0:x1], axis=1)
@@ -52,10 +47,10 @@ class CcdPrimitives(PrimitivesBASE):
                 pl.legend(legend)
                 pl.title("Overscan img #%d amp #%d" % (
                     self.frame.header['FRAMENO'], (ia+1)))
-                if interactive:
+                if self.conf.INTER:
                     input("Next? <cr>: ")
                 else:
-                    pl.pause(plpause)
+                    pl.pause(self.conf.PLOTPAUSE)
                 pl.clf()
                 # subtract it
                 for ix in range(dsec[ia][2], dsec[ia][3]):
