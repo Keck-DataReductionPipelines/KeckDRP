@@ -191,15 +191,17 @@ class CcdPrimitives(PrimitivesBASE):
         (0,0)	--------- (nx, 0)
 
         Args:
+        -----
             self: instance of CcdPrimitive class (automatic)
 
         Returns:
+        --------
             list: (int) y0, y1, x0, x1 for bias section
             list: (int) y0, y1, x0, x1 for data section
             list: (int) y0, y1, x0, x1 for trimmed section
             list: (bool) y-direction, x-direction, True if forward, else False
-
         """
+
         namps = self.frame.header['NVIDINP']
         # TODO: check namps
         # section lists
