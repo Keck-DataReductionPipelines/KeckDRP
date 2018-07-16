@@ -12,6 +12,14 @@ from astropy import log
 
 log.setLevel('INFO')
 
+parser = argparse.ArgumentParser(description="""Perform a reduction.""",
+                                 formatter_class=argparse.RawTextHelpFormatter)
+
+parser.add_argument('--recipe', type=str, help='reduction recipe')
+parser.add_argument('--loop', action='store_true', help='Use infinite loop')
+parser.add_argument('--imlist',
+                    help='File containing the frames to be reduced')
+parser.add_argument('frame', nargs='?', type=str, help='input image file')
 
 def main_loop(frame=None, recipe=None, loop=None, imlist=None):
     # case 1: one one image is specified
@@ -84,15 +92,6 @@ def check_redux_dir():
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=
-                                     """Perform a reduction.
-        """, formatter_class=argparse.RawTextHelpFormatter)
-
-    parser.add_argument('--recipe', type=str, help='reduction recipe')
-    parser.add_argument('--loop', action='store_true', help='Use infinite loop')
-    parser.add_argument('--imlist',
-                        help='File containing the frames to be reduced')
-    parser.add_argument('frame', nargs='?', type=str, help='input image file')
 
     args = parser.parse_args()
 
