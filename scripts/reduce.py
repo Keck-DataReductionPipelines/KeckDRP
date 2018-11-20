@@ -1,14 +1,16 @@
 #!/usr/bin/env python
-from KCWIPyDRP.kcwi import kcwi_primitives
+from KeckDRP.KCWI import kcwi_primitives
+import KeckDRP
 import argparse
 import importlib
 import os
 import glob
 import time
 import sys
-from KCWIPyDRP.kcwi.kcwi_objects import KcwiCCD
-from KCWIPyDRP import conf
+from KeckDRP import conf
+from KeckDRP import Instruments
 from astropy import log
+
 
 log.setLevel('INFO')
 
@@ -52,43 +54,45 @@ def main_loop(frame=None, recipe=None, loop=None, imlist=None):
 
 def go(image, rcp):
 
+
+
     # load the frame and instantiate the object
     if os.path.isfile(image):
-        frame = KcwiCCD.read(image, unit='adu')
+        frame = KeckDRP.KcwiCCD.read(image, unit='adu')
     else:
         log.error("The specified file (%s) does not exist" % image)
         sys.exit(1)
 
-    if rcp is None:
-        log.info("Checking %s header for recipe" % image)
-        imtype = frame.header['IMTYPE']
-        if 'BIAS' in imtype:
-            rcp = 'make_master_bias'
-        elif 'CONTBARS' in imtype or 'ARCLAMP' in imtype:
-            rcp = 'make_master_geom'
-        elif 'FLATLAMP' in imtype:
-            rcp = 'make_master_flat'
-        elif 'DOMEFLAT' in imtype:
-            rcp = 'make_master_dome'
-        elif 'OBJECT' in imtype:
-            rcp = 'make_science'
-        else:
-            log.error("Unable to determine recipe from IMTYPE: %s", imtype)
-            sys.exit(1)
-        log.info("%s => %s" % (imtype, rcp))
+    inst = find_instrument(frame)
 
-    mymodule = importlib.import_module("KCWIPyDRP.kcwi.recipes." + str(rcp))
-    recipe = getattr(mymodule, rcp)
+    if inst=='KCWI':
+        Instrument = Instruments.KCWI()
 
-    log.info("\n---  Reducing frame %s with recipe: %s ---" % (image, rcp))
+    frame_type = Instrument.get_image_type(frame)
+
+    recipe = Instrument.get_recipe(frame_type)
+
+    try:
+        mymodule = importlib.import_module("KeckDRP.KCWI.recipes." + str(recipe))
+        myrecipe = getattr(mymodule, recipe)
+    except:
+        log.warn(f'\n--- Recipe {recipe} does not exist')
+        return
+
+    log.info("\n---  Reducing frame %s with recipe: %s ---" % (image, myrecipe.__name__))
     p = kcwi_primitives.KcwiPrimitives()
-    recipe(p, frame)
+    myrecipe(p, frame)
 
 
 def check_redux_dir():
     if not os.path.isdir(conf.REDUXDIR):
         os.makedirs(conf.REDUXDIR)
         log.info("Output directory created: %s" % conf.REDUXDIR)
+
+
+def find_instrument(frame):
+    if 'KCWI' in frame.header['INSTRUME']:
+        return 'KCWI'
 
 
 if __name__ == '__main__':

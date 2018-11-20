@@ -1,4 +1,4 @@
-from KCWIPyDRP import PrimitivesBASE
+from KeckDRP import PrimitivesBASE
 from astropy.table import Table
 import os
 

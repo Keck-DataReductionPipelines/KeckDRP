@@ -1,6 +1,7 @@
-from KCWIPyDRP import PrimitivesBASE
+from KeckDRP import PrimitivesBASE
+import KeckDRP
 import os
-from ..kcwi.kcwi_objects import KcwiCCD
+
 import ccdproc
 
 
@@ -27,7 +28,7 @@ class ImgmathPrimitives(PrimitivesBASE):
             for f in flist:
                 infile = os.path.join(pref, f.split('.')[0] + suff)
                 self.log.info("reading image: %s" % infile)
-                stack.append(KcwiCCD.read(infile, unit=unit))
+                stack.append(KeckDRP.KcwiCCD.read(infile, unit=unit))
             # combine biases
             if 'bias' in ctype:
                 self.set_frame(ccdproc.combine(stack, method=method,

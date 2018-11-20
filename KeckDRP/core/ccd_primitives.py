@@ -1,6 +1,7 @@
-from KCWIPyDRP import PrimitivesBASE
+from KeckDRP import PrimitivesBASE
 import numpy as np
 import pylab as pl
+from ..KCWI import KcwiConf
 
 
 class CcdPrimitives(PrimitivesBASE):
@@ -19,10 +20,10 @@ class CcdPrimitives(PrimitivesBASE):
         # loop over amps
         for ia in range(namps):
             # check if we have enough data to fit
-            if (bsec[ia][3] - bsec[ia][2]) > self.conf.MINOSCANPIX:
+            if (bsec[ia][3] - bsec[ia][2]) > KcwiConf.MINOSCANPIX:
                 # pull out an overscan vector
-                x0 = bsec[ia][2] + self.conf.OSCANBUF
-                x1 = bsec[ia][3] - self.conf.OSCANBUF
+                x0 = bsec[ia][2] + KcwiConf.OSCANBUF
+                x1 = bsec[ia][3] - KcwiConf.OSCANBUF
                 y0 = bsec[ia][0]
                 y1 = bsec[ia][1] + 1
                 osvec = np.nanmedian(self.frame.data[y0:y1, x0:x1], axis=1)
@@ -47,10 +48,10 @@ class CcdPrimitives(PrimitivesBASE):
                 pl.legend(legend)
                 pl.title("Overscan img #%d amp #%d" % (
                     self.frame.header['FRAMENO'], (ia+1)))
-                if self.conf.INTER:
+                if KcwiConf.INTER:
                     input("Next? <cr>: ")
                 else:
-                    pl.pause(self.conf.PLOTPAUSE)
+                    pl.pause(KcwiConf.PLOTPAUSE)
                 pl.clf()
                 # subtract it
                 for ix in range(dsec[ia][2], dsec[ia][3]):

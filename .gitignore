@@ -9,4 +9,4 @@ KCWIPyDRP/__pycache__/*
 *.pyc
 .idea
 KCWIPyDRP/version.py
-docs/_build
+docs/_buildversion.py

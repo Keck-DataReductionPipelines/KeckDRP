@@ -2,12 +2,15 @@ from ..core import CcdPrimitives
 from ..core import ImgmathPrimitives
 from ..core import ProctabPrimitives
 import os
+from astropy import config as _config
+
 
 
 class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
 
     def __init__(self):
         super(KcwiPrimitives, self).__init__()
+
 
     def write_image(self, suffix=None):
         if suffix is not None:

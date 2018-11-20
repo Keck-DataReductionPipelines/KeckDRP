@@ -2,4 +2,36 @@
 """
 This packages contains the KCWI specific primitives and recipes
 """
-from .lookups import keyword_comments
+
+from astropy import config as _config
+class Conf(_config.ConfigNamespace):
+    """
+    Configuration parameters for KCWIPyDRP.
+    """
+    CRZAP = _config.ConfigItem(
+        True,
+        'Perform cosmic ray rejection'
+    )
+    INTER = _config.ConfigItem(
+        False,
+        'Interactive operation'
+    )
+    PLOTPAUSE = _config.ConfigItem(
+        0.5,
+        'Pause length between plots in seconds'
+    )
+    MINOSCANPIX = _config.ConfigItem(
+        75,
+        'Minimum number of pixels for overscan'
+    )
+    OSCANBUF = _config.ConfigItem(
+        20,
+        'Pixel buffer to exclude at edges of overscan'
+    )
+    OVERWRITE = _config.ConfigItem(
+        True,
+        'Overwrite output images?'
+    )
+
+
+KcwiConf = Conf()
