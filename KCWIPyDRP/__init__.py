@@ -51,6 +51,10 @@ if not _ASTROPY_SETUP_:
             "redux",
             'Directory for reduced data'
         )
+        MINIMUM_NUMBER_OF_BIASES = _config.ConfigItem(
+            7,
+            'Minimum number of biases'
+        )
     conf = Conf()
 
 
