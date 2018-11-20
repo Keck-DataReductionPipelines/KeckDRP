@@ -4,7 +4,7 @@ from ..core import ProctabPrimitives
 import os
 
 
-class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
+class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
 
     def __init__(self):
         super(KcwiPrimitives, self).__init__()
