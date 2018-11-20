@@ -9,7 +9,6 @@ The KCWIPyDRP is the Python version of the KCWI pipeline
 from ._astropy_init import *
 # ----------------------------------------------------------------------------
 from astropy import log
-from .lookups import keyword_comments
 
 # set up namespace, unless we are in setup...
 if not _ASTROPY_SETUP_:

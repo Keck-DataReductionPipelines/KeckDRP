@@ -2,3 +2,4 @@
 """
 This packages contains the KCWI specific primitives and recipes
 """
+from .lookups import keyword_comments
