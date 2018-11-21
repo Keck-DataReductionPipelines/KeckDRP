@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from KeckDRP.KCWI import kcwi_primitives
 import KeckDRP
 import argparse
 import importlib
@@ -80,7 +79,7 @@ def go(image, rcp):
         return
 
     log.info("\n---  Reducing frame %s with recipe: %s ---" % (image, myrecipe.__name__))
-    p = kcwi_primitives.KcwiPrimitives()
+    p = Instrument.get_primitives_class()
     myrecipe(p, frame)
 
 

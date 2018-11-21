@@ -26,6 +26,12 @@ class Instrument():
         except:
             return "None"
 
+    def get_primitives_class(self):
+        class generic_primitives():
+            def __init__(self):
+                pass
+
+
 
 class KCWI(Instrument):
     def __init__(self):
@@ -42,5 +48,8 @@ class KCWI(Instrument):
                             contbars='reduce_contbars',
                             arclamp='reduce_arclamp',
                             object='reduce_science')
+    def get_primitives_class(self):
+        from KeckDRP.KCWI import kcwi_primitives
+        return kcwi_primitives.KcwiPrimitives()
 
 
