@@ -37,12 +37,15 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
     def subtract_bias(self):
         tab = self.n_proctab(targtype='MBIAS')
         self.log.info("%d master bias frames found" % len(tab))
-        self.img_subtract(tab, suffix='mbias', indir='redux', keylog='MBFILE')
-        self.frame.header['BIASSUB'] = (True, self.keyword_comments['BIASSUB'])
-        logstr = self.subtract_bias.__module__ + "." + \
+        if len(tab)>0:
+            self.img_subtract(tab, suffix='mbias', indir='redux', keylog='MBFILE')
+            self.frame.header['BIASSUB'] = (True, self.keyword_comments['BIASSUB'])
+            logstr = self.subtract_bias.__module__ + "." + \
                  self.subtract_bias.__qualname__
-        self.frame.header['HISTORY'] = logstr
-        self.log.info(self.subtract_bias.__qualname__)
+            self.frame.header['HISTORY'] = logstr
+            self.log.info(self.subtract_bias.__qualname__)
+        else:
+            self.log.warn('No Bias frame found. NO BIAS SUBTRACTION')
 
     def fit_flat(self):
         self.log.info("fit_flat")
