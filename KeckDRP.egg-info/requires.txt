@@ -1,6 +1,0 @@
-astropy>=2.0
-numpy
-scipy
-astroscrappy
-reproject
-scikit-image

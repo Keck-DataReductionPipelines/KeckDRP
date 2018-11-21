@@ -10,3 +10,6 @@ KCWIPyDRP/__pycache__/*
 .idea
 KCWIPyDRP/version.py
 docs/_buildversion.py
+.pytest_cache
+KeckDRP.egg-info
+KeckDRP/version.py
