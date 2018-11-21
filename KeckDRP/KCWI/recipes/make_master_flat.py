@@ -1,4 +1,4 @@
-
+from KeckDRP import conf
 
 def make_master_flat(p, frame):
     # do basic CCD reduction
@@ -26,7 +26,7 @@ def make_master_flat(p, frame):
         # create master flat
         if len(combine_list) >= 6:
             p.img_combine(combine_list, unit=None, suffix='int',
-                          indir=p.conf.REDUXDIR, keylog='FLATLIST')
+                          indir=conf.REDUXDIR, keylog='FLATLIST')
             # output file and update proc table
             p.update_proctab(suffix='mfimg', newtype='FLAT')
             p.write_image(suffix='mfimg')
