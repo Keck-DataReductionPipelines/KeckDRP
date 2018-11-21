@@ -2,6 +2,7 @@
 """
 This packages contains the KCWI specific primitives and recipes
 """
+from . import recipes
 
 from astropy import config as _config
 class Conf(_config.ConfigNamespace):
@@ -28,9 +29,9 @@ class Conf(_config.ConfigNamespace):
         20,
         'Pixel buffer to exclude at edges of overscan'
     )
-    OVERWRITE = _config.ConfigItem(
-        True,
-        'Overwrite output images?'
+    MINIMUM_NUMBER_OF_BIASES = _config.ConfigItem(
+        5,
+        'Minimum number of biases'
     )
 
 

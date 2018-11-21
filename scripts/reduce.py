@@ -73,7 +73,7 @@ def go(image, rcp):
     recipe = Instrument.get_recipe(frame_type)
 
     try:
-        mymodule = importlib.import_module("KeckDRP.KCWI.recipes." + str(recipe))
+        mymodule = importlib.import_module(f'KeckDRP.{inst}.recipes.{recipe}')
         myrecipe = getattr(mymodule, recipe)
     except:
         log.warn(f'\n--- Recipe {recipe} does not exist')

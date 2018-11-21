@@ -1,4 +1,4 @@
-
+from .. import KcwiConf
 
 def make_master_bias(p, frame):
     # attach frame data
@@ -15,12 +15,12 @@ def make_master_bias(p, frame):
         combine_list = p.n_proctab(targtype='BIAS')
         p.log.info("number of biases = %d" % len(combine_list))
         # create master bias
-        if len(combine_list) >= 7:
+        if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_BIASES:
             p.img_combine(combine_list, keylog='BIASLIST')
             # output file and update proc table
             p.update_proctab(suffix='mbias', newtype='MBIAS')
             p.write_image(suffix='mbias')
             p.log.info("master bias produced")
         else:
-            p.log.info("need 7 biases to produce master")
+            p.log.info(f'need {KcwiConf.MINIMUM_NUMBER_OF_BIASES} biases to produce master')
         p.write_proctab()

@@ -2,7 +2,7 @@ from ..core import CcdPrimitives
 from ..core import ImgmathPrimitives
 from ..core import ProctabPrimitives
 import os
-from astropy import config as _config
+from .. import conf
 
 
 
@@ -15,18 +15,18 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
     def write_image(self, suffix=None):
         if suffix is not None:
             origfn = self.frame.header['OFNAME']
-            outfn = os.path.join(self.conf.REDUXDIR,
+            outfn = os.path.join(conf.REDUXDIR,
                                  origfn.split('.')[0]+'_'+suffix+'.fits')
-            if not self.conf.OVERWRITE and os.path.exists(outfn):
+            if not conf.OVERWRITE and os.path.exists(outfn):
                 self.log.error("output file exists: %s" % outfn)
             else:
-                self.frame.write(outfn, overwrite=self.conf.OVERWRITE)
+                self.frame.write(outfn, overwrite=conf.OVERWRITE)
                 self.log.info("output file: %s" % outfn)
 
     def write_geom(self, suffix=None):
         if suffix is not None:
             origfn = self.frame.header['OFNAME']
-            outfn = os.path.join(self.conf.REDUXDIR,
+            outfn = os.path.join(conf.REDUXDIR,
                                  origfn.split('.')[0]+'_'+suffix+'.fits')
             if not self.conf.OVERWRITE and os.path.exists(outfn):
                 self.log.error("output file exists: %s" % outfn)

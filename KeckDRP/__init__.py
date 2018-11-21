@@ -34,7 +34,10 @@ if not _ASTROPY_SETUP_:
             "redux",
             'Directory for reduced data'
         )
-
+        OVERWRITE = _config.ConfigItem(
+            True,
+            'Overwrite output images?'
+        )
 
     conf = Conf()
 
