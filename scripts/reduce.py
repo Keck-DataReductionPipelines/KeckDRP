@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/users/ccurtin/anaconda3/envs/astroconda/bin/python
 import KeckDRP
 import argparse
 import importlib
@@ -71,12 +71,12 @@ def go(image, rcp):
 
     recipe = Instrument.get_recipe(frame_type)
 
-    try:
-        mymodule = importlib.import_module(f'KeckDRP.{inst}.recipes.{recipe}')
-        myrecipe = getattr(mymodule, recipe)
-    except:
-        log.warn(f'\n--- Recipe {recipe} does not exist')
-        return
+
+    mymodule = importlib.import_module("KeckDRP.%s.recipes.%s" % (inst, recipe))
+    myrecipe = getattr(mymodule, recipe)
+    #except:
+    #    log.warn("\n--- Recipe %s does not exist" % (recipe))
+    #    return
 
     log.info("\n---  Reducing frame %s with recipe: %s ---" % (image, myrecipe.__name__))
     p = Instrument.get_primitives_class()

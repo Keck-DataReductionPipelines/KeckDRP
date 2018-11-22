@@ -7,6 +7,64 @@ import ccdproc
 
 class ImgmathPrimitives(PrimitivesBASE):
 
+    def add_to_master(self, combine_tab=None, master_tab=None, ctype='bias', indir=None, suffix=None,
+                    method='average', unit='adu', keylog=None):
+        if combine_tab is not None:
+            file_list = combine_tab['OFNAME']
+            image_numbers = combine_tab['FRAMENO']
+
+            if indir is None:
+                prefix = '.'
+            else:
+                prefix = indir
+
+            if suffix is None:
+                suff = '.fits'
+            else:
+                suff = '_' + suffix + '.fits'
+        n = len(combine_tab)
+        if master_tab is not None:
+
+            master_file_list = master_tab['OFNAME']
+            master_image_numbers = master_tab['FRAMENO']
+            indir = 'redux'
+            if indir is None:
+                master_prefix = '.'
+            else:
+                master_prefix = indir
+            suffix = 'mbias'
+            if suffix is None:
+                master_suff = '.fits'
+            else:
+                master_suff = '_' + suffix + '.fits'
+        # Read master
+        print(master_file_list)
+        print(file_list)
+        master_bias = os.path.join(master_prefix, master_file_list[0].split('.')[0] + master_suff)
+        # Read new bias
+        new_bias = os.path.join(prefix, file_list[-1].split('.')[0]+suff)
+        #
+        # combine
+        master_frame = KeckDRP.KcwiCCD.read(master_bias, unit=unit)
+        master_frame = master_frame.multiply((n-1)/n)
+        print("Trying to read file: %s" % new_bias)
+
+        new_frame = KeckDRP.KcwiCCD.read(new_bias, unit=unit)
+        metadata = new_frame.meta
+        new_frame = new_frame.multiply(1/n)
+        stack = [new_frame, master_frame]
+        # DO THE MATH!!
+        result = ccdproc.combine(stack, method=method,
+                                           sigma_clip=True,
+                                           sigma_clip_low_thresh=None,
+                                           sigma_clip_high_thresh=2.0)
+        result.meta = metadata
+        print(result.header['STATEID'])
+        self.set_frame(result)
+
+
+
+
     def img_combine(self, tab=None, ctype='bias', indir=None, suffix=None,
                     method='average', unit='adu', keylog=None):
         if tab is not None:
