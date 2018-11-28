@@ -30,7 +30,7 @@ class Conf(_config.ConfigNamespace):
         'Pixel buffer to exclude at edges of overscan'
     )
     MINIMUM_NUMBER_OF_BIASES = _config.ConfigItem(
-        5,
+        9,
         'Minimum number of biases'
     )
 
