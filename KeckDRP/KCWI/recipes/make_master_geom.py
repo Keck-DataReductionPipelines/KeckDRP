@@ -18,9 +18,9 @@ def make_master_geom(p, frame):
         p.write_image(suffix='int')
         p.log.info("flat reduced")
         # how many geom files do we have?
-        arc_list = p.n_proctab(targtype='ARCLAMP')
+        arc_list = p.n_proctab(target_type='ARCLAMP')
         p.log.info("number of arcs = %d" % len(arc_list))
-        cbars_list = p.n_proctab(targtype='CONTBARS')
+        cbars_list = p.n_proctab(target_type='CONTBARS')
         p.log.info("number of cbars = %d" % len(cbars_list))
         # create master geom
         if len(arc_list) >= 2 and len(cbars_list) >= 1:

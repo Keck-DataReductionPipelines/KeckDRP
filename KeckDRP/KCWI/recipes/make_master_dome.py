@@ -21,7 +21,7 @@ def make_master_dome(p, frame):
         p.write_image(suffix='int')
         p.log.info("dome flat reduced")
         # how many flats do we have?
-        combine_list = p.n_proctab(targtype='DOMEFLAT')
+        combine_list = p.n_proctab(target_type='DOMEFLAT')
         p.log.info("number of flats = %d" % len(combine_list))
         # create master flat
         if len(combine_list) >= 3:

@@ -43,7 +43,7 @@ class KCWI(Instrument):
                            arclamp=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'ARCLAMP'}],
                            object=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'OBJECT'}])
         self.recipes = dict(bias='handle_biases',
-                            flatlamp='make_master_flat',
+                            flatlamp='handle_flats',
                             domeflat='make_master_dome_flat',
                             contbars='reduce_contbars',
                             arclamp='reduce_arclamp',

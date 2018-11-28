@@ -33,6 +33,9 @@ class Conf(_config.ConfigNamespace):
         9,
         'Minimum number of biases'
     )
-
+    MINIMUM_NUMBER_OF_FLATS = _config.ConfigItem(
+        6,
+        'Minimum number of flats'
+    )
 
 KcwiConf = Conf()

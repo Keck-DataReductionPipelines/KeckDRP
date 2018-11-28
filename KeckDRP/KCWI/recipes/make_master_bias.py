@@ -12,7 +12,7 @@ def make_master_bias(p, frame):
         p.write_proctab()
         p.log.info("bias counted")
         # how many biases do we have?
-        combine_list = p.n_proctab(targtype='BIAS')
+        combine_list = p.n_proctab(target_type='BIAS')
         p.log.info("number of biases = %d" % len(combine_list))
         # create master bias
         if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_BIASES:

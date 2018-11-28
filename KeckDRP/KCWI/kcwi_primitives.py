@@ -35,7 +35,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
                 self.log.info("output file: %s" % outfn)
 
     def subtract_bias(self):
-        tab = self.n_proctab(targtype='MBIAS')
+        tab = self.n_proctab(target_type='MBIAS')
         self.log.info("%d master bias frames found" % len(tab))
         if len(tab)>0:
             self.img_subtract(tab, suffix='mbias', indir='redux', keylog='MBFILE')
