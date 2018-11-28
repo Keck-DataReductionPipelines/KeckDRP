@@ -11,6 +11,9 @@ from KeckDRP import Instruments
 from astropy import log
 
 
+os.system('rm -r redux')
+os.system('rm kcwi.proc')
+
 log.setLevel('INFO')
 
 parser = argparse.ArgumentParser(description="""Perform a reduction.""",
