@@ -90,7 +90,7 @@ class ProctabPrimitives(PrimitivesBASE):
         if targtype is not None and self.proctab is not None:
             tab = self.proctab[(self.proctab['TYPE'] == targtype)]
             if 'BIAS' in targtype:
-                self.log.info(f'Looking for MBIAS frames with CCDCFG = {self.frame.header["CCDCFG"]}')
+                self.log.info('Looking for MBIAS frames with CCDCFG = %s' % self.frame.header["CCDCFG"])
                 tab = tab[(tab['DID'] == int(self.frame.header['CCDCFG']))]
             else:
                 tab = tab[(tab['CID'] == self.frame.header['STATEID'])]

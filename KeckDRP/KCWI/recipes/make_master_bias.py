@@ -22,5 +22,5 @@ def make_master_bias(p, frame):
             p.write_image(suffix='mbias')
             p.log.info("master bias produced")
         else:
-            p.log.info(f'need {KcwiConf.MINIMUM_NUMBER_OF_BIASES} biases to produce master')
+            p.log.info('need %s biases to produce master' % KcwiConf.MINIMUM_NUMBER_OF_BIASES)
         p.write_proctab()
