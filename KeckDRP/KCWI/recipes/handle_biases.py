@@ -12,11 +12,11 @@ def handle_biases(p, frame):
         p.write_proctab()
         p.log.info("bias counted")
         # how many biases do we have?
-        combine_list = p.n_proctab(target_type='BIAS') #CC
+        combine_list = p.n_proctab(target_type='BIAS')
         p.log.info("number of biases = %d" % len(combine_list))
         # create master bias
         if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_BIASES:
-            p.img_combine(combine_list, keylog='BIASLIST') #CC
+            p.image_combine(combine_list, keylog='BIASLIST')
             # output file and update proc table
             p.update_proctab(suffix='master_bias', newtype='MBIAS')
             p.write_image(suffix='master_bias')

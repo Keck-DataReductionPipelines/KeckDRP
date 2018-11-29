@@ -26,8 +26,8 @@ def handle_flats(p, frame):
         p.log.info("number of flats = %d" % len(combine_list))
         # create master flat
         if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_FLATS:
-            p.img_combine(combine_list, unit=None, suffix='int',
-                          indir=conf.REDUXDIR, keylog='FLATLIST')
+            p.image_combine(combine_list, unit=None, suffix='int',
+                          in_directory=conf.REDUXDIR, keylog='FLATLIST')
             # output file and update proc table
             p.update_proctab(suffix='mfimg', newtype='FLAT')
             p.write_image(suffix='mfimg')

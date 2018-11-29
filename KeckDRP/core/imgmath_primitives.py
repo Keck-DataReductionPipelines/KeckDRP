@@ -7,30 +7,30 @@ import ccdproc
 
 class ImgmathPrimitives(PrimitivesBASE):
 
-    def img_combine(self, tab=None, ctype='bias', indir=None, suffix=None,
+    def image_combine(self, tab=None, combine_type='bias', in_directory=None, suffix=None,
                     method='average', unit='adu', keylog=None):
         if tab is not None:
-            flist = tab['OFNAME']
-            imnos = tab['FRAMENO']
+            file_list = tab['OFNAME']
+            image_numbers = tab['FRAMENO']
 
-            if indir is None:
-                pref = '.'
+            if in_directory is None:
+                prefix = '.'
             else:
-                pref = indir
+                prefix = in_directory
 
             if suffix is None:
-                suff = '.fits'
+                suffix = '.fits'
             else:
-                suff = '_' + suffix + '.fits'
+                suffix = '_' + suffix + '.fits'
 
             # stack images
             stack = []
-            for f in flist:
-                infile = os.path.join(pref, f.split('.')[0] + suff)
+            for f in file_list:
+                infile = os.path.join(prefix, f.split('.')[0] + suffix)
                 self.log.info("reading image: %s" % infile)
                 stack.append(KeckDRP.KcwiCCD.read(infile, unit=unit))
             # combine biases
-            if 'bias' in ctype:
+            if 'bias' in combine_type:
                 self.set_frame(ccdproc.combine(stack, method=method,
                                                sigma_clip=True,
                                                sigma_clip_low_thresh=None,
@@ -45,22 +45,22 @@ class ImgmathPrimitives(PrimitivesBASE):
             # do we log list in header?
             if keylog is not None:
                 # make a list of image numbers string
-                imnos_str = ','.join(str(e) for e in imnos)
-                card = (imnos_str, '')
+                image_numbers_string = ','.join(str(e) for e in image_numbers)
+                card = (image_numbers_string, '')
                 # was a keyword comment provided?
                 if keylog is not None:
                     if keylog in self.keyword_comments:
-                        card = (imnos_str, self.keyword_comments[keylog])
+                        card = (image_numbers_string, self.keyword_comments[keylog])
                     else:
-                        card = (imnos_str, '')
+                        card = (image_numbers_string, '')
                 self.frame.header[keylog] = card
-            logstr = self.img_combine.__module__ + "." + \
-                     self.img_combine.__qualname__
-            self.frame.header['HISTORY'] = logstr
-            self.log.info("%s %s using %s" % (self.img_combine.__name__,
-                                              ctype, method))
+            log_string = self.image_combine.__module__ + "." + \
+                     self.image_combine.__qualname__
+            self.frame.header['HISTORY'] = log_string
+            self.log.info("%s %s using %s" % (self.image_combine.__name__,
+                                              combine_type, method))
         else:
-            self.log.error("something went wrong with img_combine")
+            self.log.error("something went wrong with image_combine")
 
     def img_subtract(self, tab=None, indir=None, suffix=None, unit='adu',
                      keylog=None):

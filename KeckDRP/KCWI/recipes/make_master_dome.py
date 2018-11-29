@@ -25,8 +25,8 @@ def make_master_dome(p, frame):
         p.log.info("number of flats = %d" % len(combine_list))
         # create master flat
         if len(combine_list) >= 3:
-            p.img_combine(combine_list, unit=None, suffix='int',
-                          indir=p.conf.REDUXDIR, keylog='DOMELIST')
+            p.image_combine(combine_list, unit=None, suffix='int',
+                          in_directory=p.conf.REDUXDIR, keylog='DOMELIST')
             # output file and update proc table
             p.update_proctab(suffix='mdimg', newtype='DOME')
             p.write_image(suffix='mdimg')
