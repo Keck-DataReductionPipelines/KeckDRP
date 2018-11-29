@@ -1,6 +1,6 @@
 
 
-def make_master_dome(p, frame):
+def make_master_dome_flat(p, frame):
     # do basic CCD reduction
     p.set_frame(frame)
     p.read_proctab()

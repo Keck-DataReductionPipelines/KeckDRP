@@ -46,7 +46,7 @@ class KCWI(Instrument):
                             flatlamp='handle_flats',
                             domeflat='make_master_dome_flat',
                             contbars='handle_contbars',
-                            arclamp='reduce_arclamp',
+                            arclamp='handle_arclamp',
                             object='make_science')
     def get_primitives_class(self):
         from KeckDRP.KCWI import kcwi_primitives
