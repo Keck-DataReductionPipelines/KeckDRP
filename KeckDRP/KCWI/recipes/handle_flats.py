@@ -8,13 +8,13 @@ def handle_flats(p, frame):
     if p.in_proctab():
         p.log.warning("Already processed")
     else:
-        p.subtract_bias()
-        p.subtract_oscan()
-        p.trim_oscan()
-        p.correct_gain()
-        p.remove_badcols()
-        p.remove_crs()
-        p.rectify_image()
+        p.subtract_bias() #CC
+        p.subtract_oscan() #CC
+        p.trim_oscan() #CC
+        p.correct_gain() #CC
+        p.remove_badcols() #CC
+        p.remove_crs() #CC
+        p.rectify_image() #CC
         # update proc table
         p.update_proctab(suffix='int')
         p.write_proctab()
@@ -29,11 +29,11 @@ def handle_flats(p, frame):
             p.image_combine(combine_list, unit=None, suffix='int',
                           in_directory=conf.REDUXDIR, keylog='FLATLIST')
             # output file and update proc table
-            p.update_proctab(suffix='mfimg', newtype='FLAT')
-            p.write_image(suffix='mfimg')
+            p.update_proctab(suffix='flat_stack', newtype='FLAT')
+            p.write_image(suffix='flat_stack')
             p.log.info("flat stack produced")
-            p.fit_flat()
-            p.update_proctab(suffix='mflat', newtype='MFLAT')
+            p.fit_flat() #CC
+            p.update_proctab(suffix='master_flat', newtype='MFLAT')
             p.log.info("master flat produced")
         else:
             p.log.info('need %s flats to produce master' % KcwiConf.MINIMUM_NUMBER_OF_FLATS)
