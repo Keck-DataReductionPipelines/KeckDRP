@@ -38,7 +38,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives, ProctabPrimitives):
         tab = self.n_proctab(target_type='MBIAS')
         self.log.info("%d master bias frames found" % len(tab))
         if len(tab)>0:
-            self.img_subtract(tab, suffix='mbias', indir='redux', keylog='MBFILE')
+            self.img_subtract(tab, suffix='master_bias', indir='redux', keylog='MBFILE')
             self.frame.header['BIASSUB'] = (True, self.keyword_comments['BIASSUB'])
             logstr = self.subtract_bias.__module__ + "." + \
                  self.subtract_bias.__qualname__

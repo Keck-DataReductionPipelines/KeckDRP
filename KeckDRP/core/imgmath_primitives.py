@@ -4,7 +4,6 @@ import os
 
 import ccdproc
 
-
 class ImgmathPrimitives(PrimitivesBASE):
 
     def image_combine(self, tab=None, combine_type='bias', in_directory=None, suffix=None,
@@ -81,7 +80,7 @@ class ImgmathPrimitives(PrimitivesBASE):
             for f in flist:
                 infile = os.path.join(pref, f.split('.')[0] + suff)
                 self.log.info("reading image to subtract: %s" % infile)
-                subtrahend = KcwiCCD.read(infile, unit=unit)
+                subtrahend = KeckDRP.KcwiCCD.read(infile, unit=unit)
 
             if subtrahend is not None:
                 result = self.frame.subtract(subtrahend)
