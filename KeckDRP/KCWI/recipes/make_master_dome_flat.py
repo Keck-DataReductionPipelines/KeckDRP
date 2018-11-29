@@ -1,4 +1,5 @@
 from .. import KcwiConf
+from KeckDRP import conf
 
 def make_master_dome_flat(p, frame):
     # do basic CCD reduction
@@ -26,7 +27,7 @@ def make_master_dome_flat(p, frame):
         # create master flat
         if len(combine_list) >= 3:
             p.image_combine(combine_list, unit=None, suffix='int',
-                          in_directory=p.conf.REDUXDIR, keylog='DOMELIST')
+                          in_directory=conf.REDUXDIR, keylog='DOMELIST')
             # output file and update proc table
             p.update_proctab(suffix='mdimg', newtype='DOME')
             p.write_image(suffix='mdimg')
