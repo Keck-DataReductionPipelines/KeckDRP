@@ -1,4 +1,4 @@
-
+from .. import KcwiConf
 
 def make_master_dome_flat(p, frame):
     # do basic CCD reduction
