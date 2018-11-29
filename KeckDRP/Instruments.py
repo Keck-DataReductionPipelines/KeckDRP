@@ -45,9 +45,9 @@ class KCWI(Instrument):
         self.recipes = dict(bias='handle_biases',
                             flatlamp='handle_flats',
                             domeflat='make_master_dome_flat',
-                            contbars='reduce_contbars',
+                            contbars='handle_contbars',
                             arclamp='reduce_arclamp',
-                            object='reduce_science')
+                            object='make_science')
     def get_primitives_class(self):
         from KeckDRP.KCWI import kcwi_primitives
         return kcwi_primitives.KcwiPrimitives()
