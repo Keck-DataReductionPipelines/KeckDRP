@@ -36,13 +36,18 @@ class Instrument():
 class KCWI(Instrument):
     def __init__(self):
         super(KCWI, self).__init__()
-        self.image_types = dict(bias=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'BIAS'}],
+        self.image_types = dict(
+                            focus=[{'extension':1, 'keyword': 'OBJECT', 'value': 'focus'}],
+                            test=[{'extension':1, 'keyword': 'OBJECT', 'value': 'TEST'}],
+                            bias=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'BIAS'}],
                            flatlamp=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'FLATLAMP'}],
                            domeflat=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'DOMEFLAT'}],
                            contbars=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'CONTBARS'}],
                            arclamp=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'ARCLAMP'}],
                            object=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'OBJECT'}])
-        self.recipes = dict(bias='handle_biases',
+        self.recipes = dict(focus=None,
+                            test=None,
+                            bias='handle_biases',
                             flatlamp='handle_flats',
                             domeflat='make_master_dome_flat',
                             contbars='handle_contbars',

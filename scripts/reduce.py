@@ -73,6 +73,9 @@ def go(image, rcp):
     frame_type = Instrument.get_image_type(frame)
 
     recipe = Instrument.get_recipe(frame_type)
+    if recipe is None:
+        log.info("\n--- No reduction necessary ---\n")
+        return
 
     try:
 #        mymodule = importlib.import_module(f'KeckDRP.{inst}.recipes.{recipe}')

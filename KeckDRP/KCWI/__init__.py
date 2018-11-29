@@ -30,7 +30,7 @@ class Conf(_config.ConfigNamespace):
         'Pixel buffer to exclude at edges of overscan'
     )
     MINIMUM_NUMBER_OF_BIASES = _config.ConfigItem(
-        9,
+        7,
         'Minimum number of biases'
     )
     MINIMUM_NUMBER_OF_FLATS = _config.ConfigItem(
