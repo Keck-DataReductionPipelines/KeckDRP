@@ -11,8 +11,8 @@ from KeckDRP import Instruments
 from astropy import log
 
 
-#os.system('rm -r redux')
-#os.system('rm kcwi.proc')
+os.system('rm -r redux')
+os.system('rm kcwi.proc')
 
 log.setLevel('INFO')
 
@@ -77,14 +77,14 @@ def go(image, rcp):
         log.info("\n--- No reduction necessary ---\n")
         return
 
-    try:
+#    try:
 #        mymodule = importlib.import_module(f'KeckDRP.{inst}.recipes.{recipe}')
-        mymodule = importlib.import_module("KeckDRP.%s.recipes.%s" % (inst, recipe))
-        myrecipe = getattr(mymodule, recipe)
-    except:
+    mymodule = importlib.import_module("KeckDRP.%s.recipes.%s" % (inst, recipe))
+    myrecipe = getattr(mymodule, recipe)
+#    except:
 #        log.warn(f'\n--- Recipe {recipe} does not exist')
-            log.warn("\n--- Recipe %s does not exist" % (recipe))
-            return
+#            log.warn("\n--- Recipe %s does not exist" % (recipe))
+#            return
 
     log.info("\n---  Reducing frame %s with recipe: %s ---" % (image, myrecipe.__name__))
     p = Instrument.get_primitives_class()

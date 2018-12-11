@@ -52,3 +52,6 @@ class PrimitivesBASE:
 
     def set_frame(self, frame):
         self.frame = frame
+
+    def copy_frame(self, frame):
+        self.frame = frame
