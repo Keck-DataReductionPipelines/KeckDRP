@@ -4,6 +4,7 @@ from KeckDRP import conf
 import numpy as np
 import scipy.interpolate as interp
 import pylab as pl
+import time
 
 def handle_flats(p, frame):
     # do basic CCD reduction
@@ -68,6 +69,7 @@ def handle_flats(p, frame):
             pl.ylabel("counts")
             pl.pause(KcwiConf.PLOTPAUSE)
             pl.clf()
+            time.sleep(60)
             p.fit_flat() #CC
             p.update_proctab(suffix='master_flat', newtype='MFLAT')
             p.log.info("master flat produced")
