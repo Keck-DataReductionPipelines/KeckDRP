@@ -42,7 +42,7 @@ def handle_flats(p, frame):
             wavemap = p.read_idl_copy(idl_reference_procedure, suffix='wavemap')
             slicemap = p.read_idl_copy(idl_reference_procedure, suffix='slicemap')
             posmap = p.read_idl_copy(idl_reference_procedure, suffix='posmap')
-            newflat = frame
+            newflat = p.frame
             blueslice = 12
             blueleft = 30
             blueright = 40

@@ -2,7 +2,6 @@ from ..core import CcdPrimitives
 from ..core import ImgmathPrimitives
 from ..core import ProctabPrimitives
 from ..core import DevelopmentPrimitives
-import pydl.pydlutils.bspline as bspline
 import os
 from .. import conf
 
