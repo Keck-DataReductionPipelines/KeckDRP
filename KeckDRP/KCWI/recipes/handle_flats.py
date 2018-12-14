@@ -57,19 +57,22 @@ def handle_flats(p, frame):
             n = 100
             bkpt = np.min(wavemap.data[qblue]) + np.arange(n + 1) * (np.max(wavemap.data[qblue]) -
                                                                      np.min(wavemap.data[qblue])) / n
-            bkpty = interp.griddata(xfb, yfb, bkpt, method = 'cubic')
-            flat_fit_coeffs = np.polyfit(bkpt, bkpty, p_order)
+#            bkpty = interp.griddata(xfb, yfb, bkpt, method = 'cubic')
+            bkpty = interp.griddata(xfb, yfb, bkpt)
+            t, c, k = interp.splrep(bkpt, bkpty, k=3)
+#            flat_fit_coeffs = np.polyfit(bkpt, bkpty, p_order)
 #            t, c, k = interp.splrep(bkpt, bkpty, k=p_order)
-            flat_fit = np.polyval(flat_fit_coeffs, bkpt)
+#            flat_fit = np.polyval(flat_fit_coeffs, bkpt)
+            spline = interp.BSpline(t, c, k, extrapolate=False)
             # plot data and fit
             pl.ion()
             pl.plot(xfb, yfb)
-            pl.plot(bkpt, flat_fit)
+            pl.plot(bkpt, spline(bkpt))
             pl.xlabel("angstrom")
             pl.ylabel("counts")
             pl.pause(KcwiConf.PLOTPAUSE)
             pl.clf()
-            time.sleep(60)
+            time.sleep(15)
             p.fit_flat() #CC
             p.update_proctab(suffix='master_flat', newtype='MFLAT')
             p.log.info("master flat produced")
