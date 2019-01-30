@@ -4,10 +4,11 @@ import os
 
 import ccdproc
 
+
 class ImgmathPrimitives(PrimitivesBASE):
 
-    def image_combine(self, tab=None, combine_type='bias', in_directory=None, suffix=None,
-                    method='average', unit='adu', keylog=None):
+    def image_combine(self, tab=None, combine_type='bias', in_directory=None,
+                      suffix=None, method='average', unit='adu', keylog=None):
         if tab is not None:
             file_list = tab['OFNAME']
             image_numbers = tab['FRAMENO']
@@ -41,6 +42,13 @@ class ImgmathPrimitives(PrimitivesBASE):
                                            self.keyword_comments['NSTACK'])
             self.frame.header['STCKMETH'] = (method,
                                              self.keyword_comments['STCKMETH'])
+            # handle missing CCDCFG
+            if 'CCDCFG' not in self.frame.header:
+                ccdcfg = self.frame.header['CCDSUM'].replace(" ", "")
+                ccdcfg += "%1d" % self.frame.header['CCDMODE']
+                ccdcfg += "%02d" % self.frame.header['GAINMUL']
+                ccdcfg += "%02d" % self.frame.header['AMPMNUM']
+                self.frame.header['CCDCFG'] = ccdcfg
             # do we log list in header?
             if keylog is not None:
                 # make a list of image numbers string
@@ -49,12 +57,13 @@ class ImgmathPrimitives(PrimitivesBASE):
                 # was a keyword comment provided?
                 if keylog is not None:
                     if keylog in self.keyword_comments:
-                        card = (image_numbers_string, self.keyword_comments[keylog])
+                        card = (image_numbers_string,
+                                self.keyword_comments[keylog])
                     else:
                         card = (image_numbers_string, '')
                 self.frame.header[keylog] = card
             log_string = self.image_combine.__module__ + "." + \
-                     self.image_combine.__qualname__
+                         self.image_combine.__qualname__
             self.frame.header['HISTORY'] = log_string
             self.log.info("%s %s using %s" % (self.image_combine.__name__,
                                               combine_type, method))
