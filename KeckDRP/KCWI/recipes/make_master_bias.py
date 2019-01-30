@@ -1,5 +1,6 @@
 from .. import KcwiConf
 
+
 def make_master_bias(p, frame):
     # attach frame data
     p.set_frame(frame)
@@ -22,5 +23,6 @@ def make_master_bias(p, frame):
             p.write_image(suffix='mbias')
             p.log.info("master bias produced")
         else:
-            p.log.info('need %s biases to produce master' % KcwiConf.MINIMUM_NUMBER_OF_BIASES)
+            p.log.info('need %s biases to produce master' %
+                       KcwiConf.MINIMUM_NUMBER_OF_BIASES)
         p.write_proctab()

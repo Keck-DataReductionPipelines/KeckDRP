@@ -47,7 +47,7 @@ class PrimitivesBASE:
         self.frame = None
         self.log = log
         self.log.enable_color()
-        #self.conf = conf
+        # self.conf = conf
         self.keyword_comments = keyword_comments
 
     def set_frame(self, frame):

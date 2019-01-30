@@ -25,4 +25,3 @@ def make_flux_calibration(p, frame):
         p.update_proctab(suffix='int')
         p.write_proctab()
         p.log.info("science frame reduced")
-

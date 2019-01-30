@@ -1,5 +1,6 @@
 from .. import KcwiConf
 
+
 def receive_frame(p, frame):
     # attach frame data
     p.set_frame(frame)

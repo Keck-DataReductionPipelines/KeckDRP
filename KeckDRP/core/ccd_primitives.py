@@ -55,7 +55,8 @@ class CcdPrimitives(PrimitivesBASE):
                 pl.clf()
                 # subtract it
                 for ix in range(dsec[ia][2], dsec[ia][3]):
-                    self.frame.data[y0:y1, ix] = self.frame.data[y0:y1, ix] - osfit
+                    self.frame.data[y0:y1, ix] = \
+                        self.frame.data[y0:y1, ix] - osfit
 
                 self.frame.header[key] = (True, self.keyword_comments[key])
             else:

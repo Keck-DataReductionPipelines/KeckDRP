@@ -25,6 +25,7 @@ parser.add_argument('--imlist',
                     help='File containing the frames to be reduced')
 parser.add_argument('frame', nargs='?', type=str, help='input image file')
 
+
 def main_loop(frame=None, recipe=None, loop=None, imlist=None):
     # case 1: one one image is specified
     if frame:
@@ -56,18 +57,23 @@ def main_loop(frame=None, recipe=None, loop=None, imlist=None):
 
 def go(image, rcp):
 
-
-
     # load the frame and instantiate the object
     if os.path.isfile(image):
         frame = KeckDRP.KcwiCCD.read(image, unit='adu')
+        # handle missing CCDCFG
+        if 'CCDCFG' not in frame.header:
+            ccdcfg = frame.header['CCDSUM'].replace(" ", "")
+            ccdcfg += "%1d" % frame.header['CCDMODE']
+            ccdcfg += "%02d" % frame.header['GAINMUL']
+            ccdcfg += "%02d" % frame.header['AMPMNUM']
+            frame.header['CCDCFG'] = ccdcfg
     else:
         log.error("The specified file (%s) does not exist" % image)
         sys.exit(1)
 
     inst = find_instrument(frame)
 
-    if inst=='KCWI':
+    if inst == 'KCWI':
         Instrument = Instruments.KCWI()
 
     frame_type = Instrument.get_image_type(frame)
@@ -86,7 +92,8 @@ def go(image, rcp):
 #            log.warn("\n--- Recipe %s does not exist" % (recipe))
 #            return
 
-    log.info("\n---  Reducing frame %s with recipe: %s ---" % (image, myrecipe.__name__))
+    log.info("\n---  Reducing frame %s with recipe: %s ---" %
+             (image, myrecipe.__name__))
     p = Instrument.get_primitives_class()
     myrecipe(p, frame)
 

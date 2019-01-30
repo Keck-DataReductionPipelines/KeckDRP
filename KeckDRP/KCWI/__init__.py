@@ -5,6 +5,8 @@ This packages contains the KCWI specific primitives and recipes
 from . import recipes
 
 from astropy import config as _config
+
+
 class Conf(_config.ConfigNamespace):
     """
     Configuration parameters for KCWIPyDRP.
@@ -37,5 +39,6 @@ class Conf(_config.ConfigNamespace):
         6,
         'Minimum number of flats'
     )
+
 
 KcwiConf = Conf()
