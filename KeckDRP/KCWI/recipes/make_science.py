@@ -1,7 +1,7 @@
 
 
-def make_flux_calibration(p, frame):
-    # do reduction for a standard star frame
+def make_science(p, frame):
+    # do reduction for a science frame
     p.set_frame(frame)
     p.read_proctab()
     if p.in_proctab():
@@ -17,7 +17,6 @@ def make_flux_calibration(p, frame):
         p.subtract_sky()
         p.make_cube()
         p.apply_dar_correction()
-        p.make_invsensitivity()
         p.flux_calibrate()
         # this should eventually be suffix='icube'
         p.write_image(suffix='int')
@@ -25,4 +24,3 @@ def make_flux_calibration(p, frame):
         p.update_proctab(suffix='int')
         p.write_proctab()
         p.log.info("science frame reduced")
-

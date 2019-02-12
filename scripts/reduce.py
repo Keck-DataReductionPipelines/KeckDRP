@@ -1,14 +1,18 @@
 #!/usr/bin/env python
-from KCWIPyDRP.kcwi import kcwi_primitives
+import KeckDRP
 import argparse
 import importlib
 import os
 import glob
 import time
 import sys
-from KCWIPyDRP.kcwi.kcwi_objects import KcwiCCD
-from KCWIPyDRP import conf
+from KeckDRP import conf
+from KeckDRP import Instruments
 from astropy import log
+
+
+os.system('rm -r redux')
+os.system('rm kcwi.proc')
 
 log.setLevel('INFO')
 
@@ -20,6 +24,7 @@ parser.add_argument('--loop', action='store_true', help='Use infinite loop')
 parser.add_argument('--imlist',
                     help='File containing the frames to be reduced')
 parser.add_argument('frame', nargs='?', type=str, help='input image file')
+
 
 def main_loop(frame=None, recipe=None, loop=None, imlist=None):
     # case 1: one one image is specified
@@ -54,41 +59,54 @@ def go(image, rcp):
 
     # load the frame and instantiate the object
     if os.path.isfile(image):
-        frame = KcwiCCD.read(image, unit='adu')
+        frame = KeckDRP.KcwiCCD.read(image, unit='adu')
+        # handle missing CCDCFG
+        if 'CCDCFG' not in frame.header:
+            ccdcfg = frame.header['CCDSUM'].replace(" ", "")
+            ccdcfg += "%1d" % frame.header['CCDMODE']
+            ccdcfg += "%02d" % frame.header['GAINMUL']
+            ccdcfg += "%02d" % frame.header['AMPMNUM']
+            frame.header['CCDCFG'] = ccdcfg
     else:
         log.error("The specified file (%s) does not exist" % image)
         sys.exit(1)
 
-    if rcp is None:
-        log.info("Checking %s header for recipe" % image)
-        imtype = frame.header['IMTYPE']
-        if 'BIAS' in imtype:
-            rcp = 'make_master_bias'
-        elif 'CONTBARS' in imtype or 'ARCLAMP' in imtype:
-            rcp = 'make_master_geom'
-        elif 'FLATLAMP' in imtype:
-            rcp = 'make_master_flat'
-        elif 'DOMEFLAT' in imtype:
-            rcp = 'make_master_dome'
-        elif 'OBJECT' in imtype:
-            rcp = 'make_science'
-        else:
-            log.error("Unable to determine recipe from IMTYPE: %s", imtype)
-            sys.exit(1)
-        log.info("%s => %s" % (imtype, rcp))
+    inst = find_instrument(frame)
 
-    mymodule = importlib.import_module("KCWIPyDRP.kcwi.recipes." + str(rcp))
-    recipe = getattr(mymodule, rcp)
+    if inst == 'KCWI':
+        Instrument = Instruments.KCWI()
 
-    log.info("\n---  Reducing frame %s with recipe: %s ---" % (image, rcp))
-    p = kcwi_primitives.KcwiPrimitives()
-    recipe(p, frame)
+    frame_type = Instrument.get_image_type(frame)
+
+    recipe = Instrument.get_recipe(frame_type)
+    if recipe is None:
+        log.info("\n--- No reduction necessary ---\n")
+        return
+
+#    try:
+#        mymodule = importlib.import_module(f'KeckDRP.{inst}.recipes.{recipe}')
+    mymodule = importlib.import_module("KeckDRP.%s.recipes.%s" % (inst, recipe))
+    myrecipe = getattr(mymodule, recipe)
+#    except:
+#        log.warn(f'\n--- Recipe {recipe} does not exist')
+#            log.warn("\n--- Recipe %s does not exist" % (recipe))
+#            return
+
+    log.info("\n---  Reducing frame %s with recipe: %s ---" %
+             (image, myrecipe.__name__))
+    p = Instrument.get_primitives_class()
+    myrecipe(p, frame)
 
 
 def check_redux_dir():
     if not os.path.isdir(conf.REDUXDIR):
         os.makedirs(conf.REDUXDIR)
         log.info("Output directory created: %s" % conf.REDUXDIR)
+
+
+def find_instrument(frame):
+    if 'KCWI' in frame.header['INSTRUME']:
+        return 'KCWI'
 
 
 if __name__ == '__main__':

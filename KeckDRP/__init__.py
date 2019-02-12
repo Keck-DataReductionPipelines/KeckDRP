@@ -9,7 +9,9 @@ The KCWIPyDRP is the Python version of the KCWI pipeline
 from ._astropy_init import *
 # ----------------------------------------------------------------------------
 from astropy import log
-from .lookups import keyword_comments
+from .data_objects import KcwiCCD
+from .keyword_comments import keyword_comments
+
 
 # set up namespace, unless we are in setup...
 if not _ASTROPY_SETUP_:
@@ -17,40 +19,26 @@ if not _ASTROPY_SETUP_:
     # from .ccddata import *
     # from .combiner import *
     # from .image_collection import *
+
     from astropy import config as _config
 
     class Conf(_config.ConfigNamespace):
         """
         Configuration parameters for KCWIPyDRP.
         """
-        CRZAP = _config.ConfigItem(
+        Generic = _config.ConfigItem(
             True,
-            'Perform cosmic ray rejection'
-            )
-        INTER = _config.ConfigItem(
-            False,
-            'Interactive operation'
-            )
-        PLOTPAUSE = _config.ConfigItem(
-            0.5,
-            'Pause length between plots in seconds'
-            )
-        MINOSCANPIX = _config.ConfigItem(
-            75,
-            'Minimum number of pixels for overscan'
-            )
-        OSCANBUF = _config.ConfigItem(
-            20,
-            'Pixel buffer to exclude at edges of overscan'
-            )
-        OVERWRITE = _config.ConfigItem(
-            True,
-            'Overwrite output images?'
+            'Generic Boolean'
             )
         REDUXDIR = _config.ConfigItem(
             "redux",
             'Directory for reduced data'
         )
+        OVERWRITE = _config.ConfigItem(
+            True,
+            'Overwrite output images?'
+        )
+
     conf = Conf()
 
 
@@ -59,8 +47,11 @@ class PrimitivesBASE:
         self.frame = None
         self.log = log
         self.log.enable_color()
-        self.conf = conf
-        self.keyword_comments = keyword_comments.keyword_comments
+        # self.conf = conf
+        self.keyword_comments = keyword_comments
 
     def set_frame(self, frame):
+        self.frame = frame
+
+    def copy_frame(self, frame):
         self.frame = frame

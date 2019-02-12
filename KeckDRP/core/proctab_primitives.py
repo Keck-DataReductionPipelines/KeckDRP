@@ -1,4 +1,4 @@
-from KCWIPyDRP import PrimitivesBASE
+from KeckDRP import PrimitivesBASE
 from astropy.table import Table
 import os
 
@@ -25,6 +25,9 @@ class ProctabPrimitives(PrimitivesBASE):
         if os.path.isfile(tfil):
             self.log.info("reading proc table file: %s" % tfil)
             self.proctab = Table.read(tfil, format='ascii')
+            self.proctab.dtypes = ('S24', 'int64', 'S9', 'S4', 'S5', 'float64',
+                                   'float64', 'S4', 'S5', 'float64', 'int32',
+                                   'int32', 'S5', 'S25', 'S25')
         else:
             self.log.info("proc table file not found: %s" % tfil)
             self.new_proctab()
@@ -67,6 +70,8 @@ class ProctabPrimitives(PrimitivesBASE):
             if newtype is not None:
                 self.frame.header['IMTYPE'] = newtype
             # new row for proc table
+            if self.frame.header['STATEID'].strip() == '0':
+                self.frame.header['STATEID'] = 'NONE'
             new_row = [self.frame.header['STATEID'],
                        self.frame.header['CCDCFG'],
                        self.frame.header['IMTYPE'],
@@ -86,10 +91,12 @@ class ProctabPrimitives(PrimitivesBASE):
             new_row = None
         self.proctab.add_row(new_row)
 
-    def n_proctab(self, targtype=None):
-        if targtype is not None and self.proctab is not None:
-            tab = self.proctab[(self.proctab['TYPE'] == targtype)]
-            if 'BIAS' in targtype:
+    def n_proctab(self, target_type=None):
+        if target_type is not None and self.proctab is not None:
+            tab = self.proctab[(self.proctab['TYPE'] == target_type)]
+            if 'BIAS' in target_type:
+                self.log.info('Looking for MBIAS frames with CCDCFG = %s' %
+                              self.frame.header["CCDCFG"])
                 tab = tab[(tab['DID'] == int(self.frame.header['CCDCFG']))]
             else:
                 tab = tab[(tab['CID'] == self.frame.header['STATEID'])]

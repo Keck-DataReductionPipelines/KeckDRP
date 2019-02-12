@@ -15,9 +15,11 @@ class KcwiCCD(CCDData):
     def imtype(self):
         # set ILLUM keyword
         if self.header['IMTYPE'] == 'ARCLAMP':
-            if self.header['LMP0STAT'] == 1 and self.img.header['LMP0SHST'] == 1:
+            if self.header['LMP0STAT'] == 1 and \
+                    self.img.header['LMP0SHST'] == 1:
                 self.header['ILLUM'] = self.img.header['LMP0NAM']
-            elif self.header['LMP1STAT'] == 1 and self.img.header['LMP1SHST'] == 1:
+            elif self.header['LMP1STAT'] == 1 and \
+                    self.img.header['LMP1SHST'] == 1:
                 self.header['ILLUM'] = self.img.header['LMP1NAM']
             else:
                 self.header['ILLUM'] = 'Test'
