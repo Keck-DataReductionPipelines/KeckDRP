@@ -50,54 +50,25 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.log.warn('No Bias frame found. NO BIAS SUBTRACTION')
 
     def fit_flat(self):
-        # idl outline
-        # 47 set id of process for ppar comments
-        # 50 test: does the given ppar make sense
-        # 53 log process and start time
-        # 56-59 test: are there flats to fit
-        # 62-65 test: is the geometry solved
-
-        # 68-72 read geometry files, test files exist (not needed except to reference next 3)
-        # 75-81 read in wavemap, test files exist
-        # 84-90 read in slice_image, test files exist
-        # 93-99 read in position image, test files exist
-
-        # 102-105 test: directories exist
-        # 108-109 list the flat file numbers as integers and count
-        # 112 fancy format syntax generator
-        # 115 isolate file path (all files must be in same directory it seems)
-        # 118 log the number of flats in the stack
-        # 121 specify flats are dark subtracted (should be accounted in an earlier primitive in this case)
-        # 124-135 test: first file in list exists, or a more primitive version of the first file
-        # 138-146 read in first flat, get type and size
-        # 149-150 stack images if there is only 1 (just take image)
-        # 153-173 stack images if there are only 2
-        # 174-218 stack images if there are more than 2
-        # 221-231 establish average readnoise
-        # 234-235 identify binning mode
-        # 238 empty 'ask' string for later
-        # 241-248 prep plots if plotting turned on
-        # 253-304 corrects a gainfloat issue for a certain configuration. noted as deactivated
-
-        # 309-328 prep variables for actual fitting
-            # 328 string = string(list_of_flat_exposure_numbers[0],format = 5 digit integer)
-        # 331-449 correct vignetting
-            # 333 "get good region for fitting"
-            # 340 "get reference slice data"
-            # 344 "account for spectral gradient"
-            # 349 "fit wavelength slope"
-            # 367 "select the points we will fit for the vignetting"
-            # 373 "fit vignetted region
-            # 382 "plot results"
-            # 423 "compute the intersection"
-            # 425 "figure out where the correction applies"
-            # 427 "apply the correction"
-            # 431 "now deal with the intermediate buffer region"
-        # 452-461 begin fitting flat
-        # 464-532 appended code called "correction for BM where we see a ledge"
-        # 534-547 fit the blue end of one slice
+        pass
 
         self.log.info("fit_flat")
+
+    def stackBiases(self):
+        # how many biases do we have?
+        combine_list = p.n_proctab(target_type='BIAS')
+        p.log.info("number of biases = %d" % len(combine_list))
+        # create master bias
+        if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_BIASES:
+            p.image_combine(combine_list, keylog='BIASLIST')
+            # output file and update proc table
+            p.update_proctab(suffix='master_bias', newtype='MBIAS')
+            p.write_image(suffix='master_bias')
+            p.log.info("master bias produced")
+        else:
+            p.log.info('need %s biases to produce master' %
+                       KcwiConf.MINIMUM_NUMBER_OF_BIASES)
+        p.write_proctab()
 
     def subtract_scattered_light(self):
         self.log.info("subtract_scattered_light")
