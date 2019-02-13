@@ -67,7 +67,7 @@ class KCWI(Instrument):
         self.recipes = dict(
             focus=None,
             test=None,
-            bias='proccess_biases',
+            bias='process_biases',
             flatlamp='process_internal_flats',
             domeflat='process_dome_flats',
             contbars='process_contbars',
