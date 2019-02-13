@@ -63,7 +63,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
 
     def stackBiases(self):
         # how many biases do we have?
-        combine_list = p.n_proctab(target_type='BIAS')
+        combine_list = self.n_proctab(target_type='BIAS')
         self.log.info("number of biases = %d" % len(combine_list))
         # create master bias
         if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_BIASES:
