@@ -19,8 +19,12 @@ class DevelopmentPrimitives(PrimitivesBASE):
     def read_idl_copy(self, idl_reference_table=None, in_directory=None,
                       suffix=None):
         self.log.info("accessing IDL redux")
-        idl_image = idl_reference_table[0]['OFNAME']
-        idl_number = idl_reference_table[0]['FRAMENO']
+        try:
+            idl_image = idl_reference_table[0]['OFNAME']
+            idl_number = idl_reference_table[0]['FRAMENO']
+        except:
+            self.log.warn("No IDL REFERENCE table file found")
+            return
 
         if in_directory is None:
             prefix = 'IDL_redux/'
