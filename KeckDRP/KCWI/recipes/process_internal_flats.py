@@ -3,7 +3,7 @@ from KeckDRP import conf
 
 
 
-def handle_flats(p, frame):
+def process_internal_flats(p, frame):
     # do basic CCD reduction
     p.set_frame(frame)
     p.read_proctab()

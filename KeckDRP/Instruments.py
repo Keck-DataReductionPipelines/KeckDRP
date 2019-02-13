@@ -68,10 +68,10 @@ class KCWI(Instrument):
             focus=None,
             test=None,
             bias='proccess_biases',
-            flatlamp='handle_flats',
-            domeflat='make_master_dome_flat',
-            contbars='handle_contbars',
-            arclamp='handle_arclamp',
+            flatlamp='process_internal_flats',
+            domeflat='process_dome_flats',
+            contbars='process_contbars',
+            arclamp='process_arclamps',
             object='make_science')
 
     def get_primitives_class(self):
