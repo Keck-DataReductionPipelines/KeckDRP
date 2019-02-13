@@ -11,8 +11,8 @@ from KeckDRP import Instruments
 from astropy import log
 
 
-os.system('rm -r redux')
-os.system('rm kcwi.proc')
+#os.system('rm -r redux')
+#os.system('rm kcwi.proc')
 
 log.setLevel('INFO')
 
