@@ -1,13 +1,10 @@
-from .. import KcwiConf
-from KeckDRP import conf
-
-
+from ... import conf
 
 def process_internal_flats(p, frame):
     # do basic CCD reduction
     p.set_frame(frame)
     p.read_proctab()
-    if p.in_proctab():
+    if p.in_proctab() and conf.OVERWRITE is False:
         p.log.warning("Already processed")
         return
     p.subtract_bias()

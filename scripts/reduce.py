@@ -24,6 +24,7 @@ parser.add_argument('--loop', action='store_true', help='Use infinite loop')
 parser.add_argument('--imlist',
                     help='File containing the frames to be reduced')
 parser.add_argument('--imtype', type=str, help='reduce all frames of the specified image type')
+parser.add_argument('--overwrite', action='store_true', help='Reprocess images, ignore proctab information')
 parser.add_argument('frames', nargs='+', type=str, help='input image file')
 
 
@@ -123,6 +124,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     check_redux_dir()
+    if args.overwrite:
+        log.info("Reprocessing of file is enabled")
+        conf.OVERWRITE = True
 
     if args.frames:
         log.info("reducing image(s) %s" % args.frames)
