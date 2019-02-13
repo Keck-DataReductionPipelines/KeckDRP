@@ -24,14 +24,16 @@ parser.add_argument('--loop', action='store_true', help='Use infinite loop')
 parser.add_argument('--imlist',
                     help='File containing the frames to be reduced')
 parser.add_argument('--imtype', type=str, help='reduce all frames of the specified image type')
-parser.add_argument('frame', nargs='?', type=str, help='input image file')
+parser.add_argument('frames', nargs='+', type=str, help='input image file')
 
 
-def main_loop(frame=None, recipe=None, loop=None, imlist=None, imtype=None):
+def main_loop(frames=None, recipe=None, loop=None, imlist=None, imtype=None):
     # case 1: one one image is specified
-    if frame:
+    #if frames:
+    #    frames_list = glob.glob(frames)
+    for frame in frames:
         go(frame, recipe, imtype)
-        return
+    return
     # case 2: infinite loop
     if loop:
         # step 1: build a list of files already in the directory
@@ -122,9 +124,9 @@ if __name__ == '__main__':
 
     check_redux_dir()
 
-    if args.frame:
-        log.info("reducing image %s" % args.frame)
-        main_loop(frame=args.frame, recipe=args.recipe, imtype=args.imtype)
+    if args.frames:
+        log.info("reducing image(s) %s" % args.frames)
+        main_loop(frames=args.frames, recipe=args.recipe, imtype=args.imtype)
     elif args.loop:
         log.info("reducing in a loop")
         main_loop(loop=args.loop, recipe=args.recipe, imtype=args.imtype)
