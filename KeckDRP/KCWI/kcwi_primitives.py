@@ -4,6 +4,7 @@ from ..core import ProctabPrimitives
 from ..core import DevelopmentPrimitives
 import os
 from .. import conf
+from . import KcwiConf
 
 import numpy as np
 import scipy.interpolate as interp
@@ -63,39 +64,39 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
     def stackBiases(self):
         # how many biases do we have?
         combine_list = p.n_proctab(target_type='BIAS')
-        p.log.info("number of biases = %d" % len(combine_list))
+        self.log.info("number of biases = %d" % len(combine_list))
         # create master bias
         if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_BIASES:
-            p.image_combine(combine_list, keylog='BIASLIST')
+            self.image_combine(combine_list, keylog='BIASLIST')
             # output file and update proc table
-            p.update_proctab(suffix='master_bias', newtype='MBIAS')
-            p.write_image(suffix='master_bias')
-            p.log.info("master bias produced")
+            self.update_proctab(suffix='master_bias', newtype='MBIAS')
+            self.write_image(suffix='master_bias')
+            self.log.info("master bias produced")
         else:
-            p.log.info('need %s biases to produce master' %
+            self.log.info('need %s biases to produce master' %
                        KcwiConf.MINIMUM_NUMBER_OF_BIASES)
-        p.write_proctab()
+        self.write_proctab()
 
 
     def stackInternalFlats(self):
         # how many flats do we have?
-        combine_list = p.n_proctab(target_type='FLATLAMP')
-        p.log.info("number of flats = %d" % len(combine_list))
+        combine_list = self.n_proctab(target_type='FLATLAMP')
+        self.log.info("number of flats = %d" % len(combine_list))
         # create master flat
         if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_FLATS:
-            p.image_combine(combine_list, unit=None, suffix='int',
+            self.image_combine(combine_list, unit=None, suffix='int',
                             in_directory=conf.REDUXDIR, keylog='FLATLIST')
             # output file and update proc table
-            p.update_proctab(suffix='flat_stack', newtype='FLAT')
-            p.write_image(suffix='flat_stack')
-            p.log.info("flat stack produced")
-            idl_reference_procedure = p.get_idl_counterpart(
+            self.update_proctab(suffix='flat_stack', newtype='FLAT')
+            self.write_image(suffix='flat_stack')
+            self.log.info("flat stack produced")
+            idl_reference_procedure = self.get_idl_counterpart(
                 target_type='CONTBARS')
-            wavemap = p.read_idl_copy(idl_reference_procedure, suffix='wavemap')
-            slicemap = p.read_idl_copy(idl_reference_procedure,
+            wavemap = self.read_idl_copy(idl_reference_procedure, suffix='wavemap')
+            slicemap = self.read_idl_copy(idl_reference_procedure,
                                        suffix='slicemap')
-            posmap = p.read_idl_copy(idl_reference_procedure, suffix='posmap')
-            newflat = p.frame
+            posmap = self.read_idl_copy(idl_reference_procedure, suffix='posmap')
+            newflat = self.frame
             blueslice = 12
             blueleft = 30
             blueright = 40
@@ -128,13 +129,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.pause(KcwiConf.PLOTPAUSE)
             pl.clf()
             time.sleep(15)
-            p.fit_flat()  # CC
-            p.update_proctab(suffix='master_flat', newtype='MFLAT')
-            p.log.info("master flat produced")
+            self.fit_flat()  # CC
+            self.update_proctab(suffix='master_flat', newtype='MFLAT')
+            self.log.info("master flat produced")
         else:
-            p.log.info('need %s flats to produce master' %
+            self.log.info('need %s flats to produce master' %
                        KcwiConf.MINIMUM_NUMBER_OF_FLATS)
-        p.write_proctab()
+        self.write_proctab()
 
     def subtract_scattered_light(self):
         self.log.info("subtract_scattered_light")
