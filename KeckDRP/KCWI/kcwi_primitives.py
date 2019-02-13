@@ -96,6 +96,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             slicemap = self.read_idl_copy(idl_reference_procedure,
                                        suffix='slicemap')
             posmap = self.read_idl_copy(idl_reference_procedure, suffix='posmap')
+            if posmap is None:
+                self.log.warn("No idl reference file found. Stacking is impossible")
+                return
             newflat = self.frame
             blueslice = 12
             blueleft = 30
