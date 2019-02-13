@@ -27,7 +27,7 @@ class Instrument:
             if current_type_is_true is False:
                 continue
             else:
-                return type
+                return image_type
         return "UNKNOWN"
 
     def get_recipe(self, image_type):
