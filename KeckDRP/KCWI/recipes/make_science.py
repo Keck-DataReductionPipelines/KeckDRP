@@ -12,6 +12,7 @@ def make_science(p, frame):
         p.trim_oscan()
         p.correct_gain()
         p.remove_badcols()
+        p.remove_crs()
         p.rectify_image()
         p.apply_flat()
         p.subtract_sky()

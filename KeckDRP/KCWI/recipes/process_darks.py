@@ -1,7 +1,7 @@
 from ... import conf
 
 
-def process_biases(p, frame):
+def process_darks(p, frame):
     # attach frame data
     p.set_frame(frame)
     p.read_proctab()
@@ -9,7 +9,15 @@ def process_biases(p, frame):
         p.log.warning("Already processed")
         return
 
+    # process dark frame
+    p.subtract_bias()
+    p.subtract_oscan()
+    p.trim_oscan()
+    p.correct_gain()
+    p.remove_badcols()
+    p.remove_crs()
+    p.rectify_image()
     # update proc table
     p.update_proctab()
     p.write_proctab()
-    p.stack_biases()
+    p.stack_darks()
