@@ -10,10 +10,12 @@ class ProctabPrimitives(PrimitivesBASE):
         super(ProctabPrimitives, self).__init__()
 
     def new_proctab(self):
-        cnames = ('CID', 'DID', 'TYPE', 'CAM', 'GRAT', 'GANG', 'CWAVE', 'BIN',
-                  'FILT', 'MJD', 'FRAMENO', 'STAGE', 'SUFF', 'OFNAME', 'OBJECT')
-        dtypes = ('S24', 'int64', 'S9', 'S4', 'S5', 'float64', 'float64', 'S4',
-                  'S5', 'float64', 'int32', 'int32', 'S5', 'S25', 'S25')
+        cnames = ('CID', 'DID', 'TYPE', 'TELAPSE', 'CAM', 'GRAT', 'GANG',
+                  'CWAVE', 'BIN', 'FILT', 'MJD', 'FRAMENO', 'STAGE', 'SUFF',
+                  'OFNAME', 'OBJECT')
+        dtypes = ('S24', 'int64', 'S9', 'float64', 'S4', 'S5', 'float64',
+                  'float64', 'S4', 'S5', 'float64', 'int32', 'int32', 'S5',
+                  'S25', 'S25')
         meta = {'KCWI DRP PROC TABLE': 'new table'}
         self.proctab = Table(names=cnames, dtype=dtypes, meta=meta)
         # prevent string column truncation
@@ -75,6 +77,7 @@ class ProctabPrimitives(PrimitivesBASE):
             new_row = [self.frame.header['STATEID'],
                        self.frame.header['CCDCFG'],
                        self.frame.header['IMTYPE'],
+                       self.frame.header['TELAPSE'],
                        self.frame.header['CAMERA'],
                        self.frame.header['BGRATNAM'],
                        self.frame.header['BGRANGLE'],
@@ -93,10 +96,25 @@ class ProctabPrimitives(PrimitivesBASE):
 
     def n_proctab(self, target_type=None):
         if target_type is not None and self.proctab is not None:
+            self.log.info('Looking for %s frames' % target_type)
             tab = self.proctab[(self.proctab['TYPE'] == target_type)]
+            # BIASES must have the same CCDCFG
             if 'BIAS' in target_type:
-                self.log.info('Looking for MBIAS frames with CCDCFG = %s' %
-                              self.frame.header["CCDCFG"])
+                self.log.info('Looking for frames with CCDCFG = %s' %
+                              self.frame.header['CCDCFG'])
+                tab = tab[(tab['DID'] == int(self.frame.header['CCDCFG']))]
+            # raw DARKS must have the same CCDCFG and TELAPSE
+            elif target_type == 'DARK':
+                self.log.info('Looking for frames with CCDCFG = %s and '
+                              'TELAPSE = %f' % (self.frame.header['CCDCFG'],
+                                                self.frame.header['TELAPSE']))
+                tab = tab[(tab['DID'] == int(self.frame.header['CCDCFG']) &
+                           tab['TELAPSE'] == float(self.frame.header['TELAPSE'])
+                           )]
+            # MDARKS must have the same CCDCFG, will be scaled to match TELAPSE
+            elif target_type == 'MDARK':
+                self.log.info('Looking for frames with CCDCFG = %s' %
+                              self.frame.header['CCDCFG'])
                 tab = tab[(tab['DID'] == int(self.frame.header['CCDCFG']))]
             else:
                 tab = tab[(tab['CID'] == self.frame.header['STATEID'])]
