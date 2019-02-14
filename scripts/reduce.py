@@ -23,18 +23,20 @@ parser.add_argument('--recipe', type=str, help='reduction recipe')
 parser.add_argument('--loop', action='store_true', help='Use infinite loop')
 parser.add_argument('--imlist',
                     help='File containing the frames to be reduced')
-parser.add_argument('--imtype', type=str, help='reduce all frames of the specified image type')
-parser.add_argument('--overwrite', action='store_true', help='Reprocess images, ignore proctab information')
+parser.add_argument('--imtype', type=str,
+                    help='reduce all frames of the specified image type')
+parser.add_argument('--overwrite', action='store_true',
+                    help='Reprocess images, ignore proctab information')
 parser.add_argument('frames', nargs='+', type=str, help='input image file')
 
 
-def main_loop(frames=None, recipe=None, loop=None, imlist=None, imtype=None):
+def main_loop(frames=None, recipe=None, loop=False, imlist=None, imtype=None):
     # case 1: one one image is specified
-    #if frames:
-    #    frames_list = glob.glob(frames)
-    for frame in frames:
-        go(frame, recipe, imtype)
-    return
+    if frames:
+        frames_list = glob.glob(frames)
+        for frame in frames:
+            go(frame, recipe, imtype)
+        return
     # case 2: infinite loop
     if loop:
         # step 1: build a list of files already in the directory
@@ -82,25 +84,28 @@ def go(image, rcp, imtype=None):
 
     frame_type = Instrument.get_image_type(frame)
     if imtype:
-        if imtype!=frame_type:
-            log.info("Frame %s (%s) is not of imtype %s and will be skipped" % (image, frame_type, imtype))
+        if imtype != frame_type:
+            log.info("Frame %s (%s) is not of imtype %s and will be skipped" %
+                     (image, frame_type, imtype))
             return
 
     recipe = Instrument.get_recipe(frame_type)
-    log.info("Frame %s is of IMTYPE %s and uses the recipe %s" % (image, frame_type, recipe))
+    log.info("Frame %s is of IMTYPE %s and uses the recipe %s" %
+             (image, frame_type, recipe))
 
     if recipe is None:
         log.info("\n--- No reduction necessary ---\n")
         return
 
     try:
-        mymodule = importlib.import_module("KeckDRP.%s.recipes.%s" % (inst, recipe))
+        mymodule = importlib.import_module("KeckDRP.%s.recipes.%s" %
+                                           (inst, recipe))
         myrecipe = getattr(mymodule, recipe)
     except ImportError:
-        log.warn("\n--- Recipe %s does not exist" % (recipe))
+        log.warn("\n--- Recipe %s does not exist" % recipe)
         return
     except RuntimeError:
-        log.warn("\n--- Error looking for recipe %s" % (recipe))
+        log.warn("\n--- Error looking for recipe %s" % recipe)
 
     log.info("\n---  Reducing frame %s with recipe: %s ---" %
              (image, myrecipe.__name__))

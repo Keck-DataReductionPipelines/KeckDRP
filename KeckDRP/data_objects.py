@@ -14,25 +14,39 @@ class KcwiCCD(CCDData):
 
     def imtype(self):
         # set ILLUM keyword
+        # ARCS
         if self.header['IMTYPE'] == 'ARCLAMP':
             if self.header['LMP0STAT'] == 1 and \
-                    self.img.header['LMP0SHST'] == 1:
-                self.header['ILLUM'] = self.img.header['LMP0NAM']
+                    self.header['LMP0SHST'] == 1:
+                self.header['ILLUM'] = self.header['LMP0NAM']
             elif self.header['LMP1STAT'] == 1 and \
-                    self.img.header['LMP1SHST'] == 1:
-                self.header['ILLUM'] = self.img.header['LMP1NAM']
+                    self.header['LMP1SHST'] == 1:
+                self.header['ILLUM'] = self.header['LMP1NAM']
             else:
                 self.header['ILLUM'] = 'Test'
+        # Internal FLATS
         elif self.header['IMTYPE'] == 'FLATLAMP':
             if self.header['LMP3STAT'] == 1:
                 self.header['ILLUM'] = 'Contin'
             else:
                 self.header['ILLUM'] = 'Test'
+        # DOMES
+        elif self.header['IMTYPE'] == 'DOMEFLAT':
+            if self.header['FLIMAGIN'] == 'on' or \
+                    self.header['FLSPECTR'] == 'on':
+                self.header['ILLUM'] = 'Dome'
+            else:
+                self.header['ILLUM'] = 'Test'
+        # Twilight FLATS
+        elif self.header['IMTYPE'] == 'TWIFLAT':
+            self.header['ILLUM'] = 'Twilit'
+        # BARS
         elif self.header['IMTYPE'] == 'CONTBARS':
             if self.header['LMP3STAT'] == 1:
                 self.header['ILLUM'] = 'Contin'
             else:
                 self.header['ILLUM'] = 'Test'
+        # OBJECT
         elif self.header['IMTYPE'] == 'OBJECT':
             self.header['ILLUM'] = 'Object'
         else:
