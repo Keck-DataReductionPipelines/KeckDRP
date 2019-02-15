@@ -33,7 +33,6 @@ parser.add_argument('frames', nargs='+', type=str, help='input image file')
 def main_loop(frames=None, recipe=None, loop=False, imlist=None, imtype=None):
     # case 1: one one image is specified
     if frames:
-        #frames_list = glob.glob(frames)
         for frame in frames:
             go(frame, recipe, imtype)
         return

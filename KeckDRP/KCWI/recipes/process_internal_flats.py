@@ -23,6 +23,6 @@ def process_internal_flats(p, frame):
     p.write_image(suffix='int')
     p.log.info("flat reduced")
 
-    p.stackInternalFlats()
+    p.stack_internal_flats()
 
 
