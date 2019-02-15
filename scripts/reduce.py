@@ -101,8 +101,8 @@ def go(image, rcp, imtype=None):
         mymodule = importlib.import_module("KeckDRP.%s.recipes.%s" %
                                            (inst, recipe))
         myrecipe = getattr(mymodule, recipe)
-    except ImportError:
-        log.warn("\n--- Recipe %s does not exist" % recipe)
+    except ImportError as err:
+        log.warn("\n--- Recipe %s does not exist (%s)" % (recipe, err))
         return
     except RuntimeError:
         log.warn("\n--- Error looking for recipe %s" % recipe)
