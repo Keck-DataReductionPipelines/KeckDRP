@@ -33,7 +33,7 @@ parser.add_argument('frames', nargs='+', type=str, help='input image file')
 def main_loop(frames=None, recipe=None, loop=False, imlist=None, imtype=None):
     # case 1: one one image is specified
     if frames:
-        frames_list = glob.glob(frames)
+        #frames_list = glob.glob(frames)
         for frame in frames:
             go(frame, recipe, imtype)
         return
@@ -101,8 +101,8 @@ def go(image, rcp, imtype=None):
         mymodule = importlib.import_module("KeckDRP.%s.recipes.%s" %
                                            (inst, recipe))
         myrecipe = getattr(mymodule, recipe)
-    except ImportError:
-        log.warn("\n--- Recipe %s does not exist" % recipe)
+    except ImportError as err:
+        log.warn("\n--- Recipe %s does not exist (%s)" % (recipe, err))
         return
     except RuntimeError:
         log.warn("\n--- Error looking for recipe %s" % recipe)
