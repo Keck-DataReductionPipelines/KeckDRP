@@ -21,7 +21,9 @@ class Instrument:
                 extension = keyword_check['extension']
                 keyword = keyword_check['keyword']
                 expected_value = keyword_check['value']
-                actual_value = frame.header[keyword].strip()
+                actual_value = frame.header[keyword]
+                if type(actual_value) is str:
+                    actual_value = actual_value.strip()
                 if actual_value != expected_value:
                     current_type_is_true = False
             if current_type_is_true is False:
@@ -55,7 +57,8 @@ class KCWI(Instrument):
         self.image_types = dict(
             focus=[{'extension': 1, 'keyword': 'OBJECT', 'value': 'focus'}],
             test=[{'extension': 1, 'keyword': 'OBJECT', 'value': 'TEST'}],
-            bias=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'BIAS'}],
+            bias=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'BIAS'},
+                  {'extension': 1, 'keyword': 'TELAPSE', 'value': 0.0}],
             flatlamp=[{'extension': 1, 'keyword': 'IMTYPE',
                        'value': 'FLATLAMP'}],
             domeflat=[{'extension': 1, 'keyword': 'IMTYPE',
