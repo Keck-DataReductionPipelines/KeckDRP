@@ -1,5 +1,5 @@
 from KeckDRP import PrimitivesBASE
-from astropy.table import Table
+from astropy.table import Table, unique
 import os
 
 
@@ -32,6 +32,8 @@ class ProctabPrimitives(PrimitivesBASE):
                                    'int32', 'S5', 'S25', 'S25')
         else:
             self.log.info("proc table file not found: %s" % tfil)
+            self.new_proctab()
+        if len(self.proctab) == 0:
             self.new_proctab()
         # format columns
         self.proctab['GANG'].format = '7.2f'
@@ -92,7 +94,11 @@ class ProctabPrimitives(PrimitivesBASE):
                        self.frame.header['OBJECT'].replace(" ", "")]
         else:
             new_row = None
+        print("Attempting to add %s" % str(new_row))
         self.proctab.add_row(new_row)
+        #print("BEFORE", self.proctab)
+        self.proctab = unique(self.proctab, keys=['CID', 'FRAMENO', 'STAGE'], keep='last')
+        print("AFTER", self.proctab)
 
     def n_proctab(self, target_type=None):
         if target_type is not None and self.proctab is not None:
