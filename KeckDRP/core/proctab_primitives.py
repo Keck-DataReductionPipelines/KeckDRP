@@ -10,10 +10,10 @@ class ProctabPrimitives(PrimitivesBASE):
         super(ProctabPrimitives, self).__init__()
 
     def new_proctab(self):
-        cnames = ('CID', 'DID', 'TYPE', 'TELAPSE', 'CAM', 'GRAT', 'GANG',
+        cnames = ('CID', 'DID', 'TYPE', 'GRPID', 'TTIME', 'CAM', 'GRAT', 'GANG',
                   'CWAVE', 'BIN', 'FILT', 'MJD', 'FRAMENO', 'STAGE', 'SUFF',
                   'OFNAME', 'OBJECT')
-        dtypes = ('S24', 'int64', 'S9', 'float64', 'S4', 'S5', 'float64',
+        dtypes = ('S24', 'int64', 'S9', 'S12', 'float64', 'S4', 'S5', 'float64',
                   'float64', 'S4', 'S5', 'float64', 'int32', 'int32', 'S5',
                   'S25', 'S25')
         meta = {'KCWI DRP PROC TABLE': 'new table'}
@@ -27,9 +27,9 @@ class ProctabPrimitives(PrimitivesBASE):
         if os.path.isfile(tfil):
             self.log.info("reading proc table file: %s" % tfil)
             self.proctab = Table.read(tfil, format='ascii')
-            self.proctab.dtypes = ('S24', 'int64', 'S9', 'S4', 'S5', 'float64',
-                                   'float64', 'S4', 'S5', 'float64', 'int32',
-                                   'int32', 'S5', 'S25', 'S25')
+            self.proctab.dtypes = ('S24', 'int64', 'S9', 'S12', 'S4', 'S5',
+                                   'float64', 'float64', 'S4', 'S5', 'float64',
+                                   'int32', 'int32', 'S5', 'S25', 'S25')
         else:
             self.log.info("proc table file not found: %s" % tfil)
             self.new_proctab()
@@ -76,10 +76,15 @@ class ProctabPrimitives(PrimitivesBASE):
             # new row for proc table
             if self.frame.header['STATEID'].strip() == '0':
                 self.frame.header['STATEID'] = 'NONE'
+            if 'GRPID' not in self.frame.header:
+                dto = self.frame.header['DATE-OBS']
+                fno = self.frame.header['FRAMENO']
+                self.frame.header['GRPID'] = "%s-%s" % (dto, fno)
             new_row = [self.frame.header['STATEID'],
                        self.frame.header['CCDCFG'],
                        self.frame.header['IMTYPE'],
-                       self.frame.header['TELAPSE'],
+                       self.frame.header['GRPID'],
+                       self.frame.header['TTIME'],
                        self.frame.header['CAMERA'],
                        self.frame.header['BGRATNAM'],
                        self.frame.header['BGRANGLE'],
@@ -96,11 +101,10 @@ class ProctabPrimitives(PrimitivesBASE):
             new_row = None
         print("Attempting to add %s" % str(new_row))
         self.proctab.add_row(new_row)
-        #print("BEFORE", self.proctab)
-        self.proctab = unique(self.proctab, keys=['CID', 'FRAMENO', 'STAGE'], keep='last')
-        print("AFTER", self.proctab)
+        self.proctab = unique(self.proctab, keys=['CID', 'FRAMENO', 'STAGE'],
+                              keep='last')
 
-    def n_proctab(self, target_type=None):
+    def n_proctab(self, target_type=None, target_group=None, nearest=False):
         if target_type is not None and self.proctab is not None:
             self.log.info('Looking for %s frames' % target_type)
             tab = self.proctab[(self.proctab['TYPE'] == target_type)]
@@ -109,21 +113,35 @@ class ProctabPrimitives(PrimitivesBASE):
                 self.log.info('Looking for frames with CCDCFG = %s' %
                               self.frame.header['CCDCFG'])
                 tab = tab[(tab['DID'] == int(self.frame.header['CCDCFG']))]
-            # raw DARKS must have the same CCDCFG and TELAPSE
+                if target_group is not None:
+                    tab = tab[(tab['GRPID'] == target_group)]
+            # raw DARKS must have the same CCDCFG and TTIME
             elif target_type == 'DARK':
                 self.log.info('Looking for frames with CCDCFG = %s and '
-                              'TELAPSE = %f' % (self.frame.header['CCDCFG'],
-                                                self.frame.header['TELAPSE']))
-                tab = tab[(tab['DID'] == int(self.frame.header['CCDCFG']) &
-                           tab['TELAPSE'] == float(self.frame.header['TELAPSE'])
-                           )]
-            # MDARKS must have the same CCDCFG, will be scaled to match TELAPSE
+                              'TTIME = %f' % (self.frame.header['CCDCFG'],
+                                              self.frame.header['TTIME']))
+                tab = tab[tab['DID'] == int(self.frame.header['CCDCFG'])]
+                tab = tab[tab['TTIME'] == float(self.frame.header['TTIME'])]
+                tab = tab[tab['GRPID'] == target_group]
+            # MDARKS must have the same CCDCFG, will be scaled to match TTIME
             elif target_type == 'MDARK':
                 self.log.info('Looking for frames with CCDCFG = %s' %
                               self.frame.header['CCDCFG'])
                 tab = tab[(tab['DID'] == int(self.frame.header['CCDCFG']))]
             else:
                 tab = tab[(tab['CID'] == self.frame.header['STATEID'])]
+            # Check if nearest entry is requested
+            if nearest and len(tab) > 1:
+                tfno = self.frame.header['FRAMENO']
+                minoff = 99999
+                trow = None
+                for row in tab:
+                    off = abs(row['FRAMENO'] - tfno)
+                    if off < minoff:
+                        minoff = off
+                        trow = row
+                if trow is not None:
+                    tab = tab[(tab['FRAMENO'] == trow['FRAMENO'])]
         else:
             tab = None
         return tab
