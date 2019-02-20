@@ -16,19 +16,6 @@ from astropy import log
 
 log.setLevel('INFO')
 
-parser = argparse.ArgumentParser(description="""Perform a reduction.""",
-                                 formatter_class=argparse.RawTextHelpFormatter)
-
-parser.add_argument('--recipe', type=str, help='reduction recipe')
-parser.add_argument('--loop', action='store_true', help='Use infinite loop')
-parser.add_argument('--imlist',
-                    help='File containing the frames to be reduced')
-parser.add_argument('--imtype', type=str,
-                    help='reduce all frames of the specified image type')
-parser.add_argument('--overwrite', action='store_true',
-                    help='Reprocess images, ignore proctab information')
-parser.add_argument('frames', nargs='+', type=str, help='input image file')
-
 
 def main_loop(frames=None, recipe=None, loop=False, imlist=None, imtype=None):
     # case 1: one one image is specified
@@ -124,6 +111,19 @@ def find_instrument(frame):
 
 
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description="""Perform a reduction.""",
+                                     formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument('--recipe', type=str, help='reduction recipe')
+    parser.add_argument('--loop', action='store_true', help='Use infinite loop')
+    parser.add_argument('--imlist',
+                        help='File containing the frames to be reduced')
+    parser.add_argument('--imtype', type=str,
+                        help='reduce all frames of the specified image type')
+    parser.add_argument('--overwrite', action='store_true',
+                        help='Reprocess images, ignore proctab information')
+    parser.add_argument('frames', nargs='*', type=str, help='input image file')
 
     args = parser.parse_args()
 
