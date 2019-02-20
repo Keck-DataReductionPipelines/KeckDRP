@@ -59,6 +59,7 @@ class KCWI(Instrument):
             test=[{'extension': 1, 'keyword': 'OBJECT', 'value': 'TEST'}],
             bias=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'BIAS'},
                   {'extension': 1, 'keyword': 'TELAPSE', 'value': 0.0}],
+            dark=[{'extension': 1, 'keyword': 'IMTYPE', 'value': 'DARK'}],
             flatlamp=[{'extension': 1, 'keyword': 'IMTYPE',
                        'value': 'FLATLAMP'}],
             domeflat=[{'extension': 1, 'keyword': 'IMTYPE',

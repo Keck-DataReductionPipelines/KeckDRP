@@ -41,7 +41,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 self.log.info("output file: %s" % outfn)
 
     def subtract_bias(self):
-        tab = self.n_proctab(target_type='MBIAS')
+        tab = self.n_proctab(target_type='MBIAS', nearest=True)
         self.log.info("%d master bias frames found" % len(tab))
         if len(tab) > 0:
             self.img_subtract(tab, suffix='master_bias', indir='redux',
@@ -55,14 +55,34 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         else:
             self.log.warn('No Master Bias frame found. NO BIAS SUBTRACTION')
 
+    def subtract_dark(self):
+        tab = self.n_proctab(target_type='MDARK', nearest=True)
+        self.log.info("%d master dark frames found" % len(tab))
+        if len(tab) > 0:
+            self.img_subtract(tab, suffix='master_bias', indir='redux',
+                              keylog='MDFILE')
+            self.frame.header['DARKSUB'] = (True,
+                                            self.keyword_comments['DARKSUB'])
+            logstr = self.subtract_bias.__module__ + "." + \
+                     self.subtract_bias.__qualname__
+            self.frame.header['HISTORY'] = logstr
+            self.log.info(self.subtract_bias.__qualname__)
+        else:
+            self.log.warn('No Master Dark frame found. NO DARK SUBTRACTION')
+
     def fit_flat(self):
         pass
 
         self.log.info("fit_flat")
 
     def stack_biases(self):
+        # get current group id
+        if 'GRPID' in self.frame.header:
+            grpid = self.frame.header['GRPID'].strip()
+        else:
+            grpid = None
         # how many biases do we have?
-        combine_list = self.n_proctab(target_type='BIAS')
+        combine_list = self.n_proctab(target_type='BIAS', target_group=grpid)
         self.log.info("number of biases = %d" % len(combine_list))
         # create master bias
         if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_BIASES:
@@ -77,12 +97,18 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.write_proctab()
 
     def stack_darks(self):
-        # how many biases do we have?
-        combine_list = self.n_proctab(target_type='DARK')
+        # get current group id
+        if 'GRPID' in self.frame.header:
+            grpid = self.frame.header['GRPID'].strip()
+        else:
+            grpid = None
+        # how many darks do we have?
+        combine_list = self.n_proctab(target_type='DARK', target_group=grpid)
         self.log.info("number of darks = %d" % len(combine_list))
         # create master bias
         if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_DARKS:
-            self.image_combine(combine_list, keylog='DARKLIST')
+            self.image_combine(combine_list, keylog='DARKLIST',
+                               in_directory='redux', suffix='int')
             # output file and update proc table
             self.update_proctab(suffix='master_dark', newtype='MDARK')
             self.write_image(suffix='master_dark')

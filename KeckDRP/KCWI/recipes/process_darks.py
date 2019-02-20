@@ -18,6 +18,7 @@ def process_darks(p, frame):
     p.remove_crs()
     p.rectify_image()
     # update proc table
+    p.write_image(suffix='int')
     p.update_proctab()
     p.write_proctab()
     p.stack_darks()
