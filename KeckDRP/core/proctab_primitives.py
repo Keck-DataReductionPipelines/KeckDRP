@@ -76,14 +76,14 @@ class ProctabPrimitives(PrimitivesBASE):
             # new row for proc table
             if self.frame.header['STATEID'].strip() == '0':
                 self.frame.header['STATEID'] = 'NONE'
-            if 'GRPID' not in self.frame.header:
+            if 'GROUPID' not in self.frame.header:
                 dto = self.frame.header['DATE-OBS']
                 fno = self.frame.header['FRAMENO']
-                self.frame.header['GRPID'] = "%s-%s" % (dto, fno)
+                self.frame.header['GROUPID'] = "%s-%s" % (dto, fno)
             new_row = [self.frame.header['STATEID'],
                        self.frame.header['CCDCFG'],
                        self.frame.header['IMTYPE'],
-                       self.frame.header['GRPID'],
+                       self.frame.header['GROUPID'],
                        self.frame.header['TTIME'],
                        self.frame.header['CAMERA'],
                        self.frame.header['BGRATNAM'],
@@ -107,7 +107,11 @@ class ProctabPrimitives(PrimitivesBASE):
     def n_proctab(self, target_type=None, target_group=None, nearest=False):
         if target_type is not None and self.proctab is not None:
             self.log.info('Looking for %s frames' % target_type)
-            tab = self.proctab[(self.proctab['TYPE'] == target_type)]
+            # get relevant camera (blue or red)
+            tab = self.proctab[(self.proctab['CAM'] ==
+                                self.frame.header['CAMERA'].strip())]
+            # get target type images
+            tab = tab[(self.proctab['TYPE'] == target_type)]
             # BIASES must have the same CCDCFG
             if 'BIAS' in target_type:
                 self.log.info('Looking for frames with CCDCFG = %s' %
@@ -147,7 +151,10 @@ class ProctabPrimitives(PrimitivesBASE):
         return tab
 
     def in_proctab(self):
-        imno_list = self.proctab['FRAMENO']
+        # get relevant camera (blue or red)
+        tab = self.proctab[(self.proctab['CAM'] ==
+                            self.frame.header['CAMERA'].strip())]
+        imno_list = tab['FRAMENO']
         if self.frame.header['FRAMENO'] in imno_list:
             return True
         else:

@@ -10,6 +10,11 @@ import numpy as np
 import scipy.interpolate as interp
 import pylab as pl
 import time
+################
+# ccdproc usage
+# import KeckDRP
+# import ccdproc
+################
 
 
 class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
@@ -44,6 +49,18 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         tab = self.n_proctab(target_type='MBIAS', nearest=True)
         self.log.info("%d master bias frames found" % len(tab))
         if len(tab) > 0:
+            ####################################
+            # ccdproc usage
+            # suff = '_master_bias.fits'
+            # pref = 'redux'
+            # flist = tab['OFNAME']
+            # for f in flist:
+            #    infile = os.path.join(pref, f.split('.')[0] + suff)
+            #    self.log.info("reading image to subtract: %s" % infile)
+            #    master = KeckDRP.KcwiCCD.read(infile, unit='adu')
+            # bsub = ccdproc.subtract_bias(self.frame, master)
+            # self.set_frame(bsub)
+            #####################################
             self.img_subtract(tab, suffix='master_bias', indir='redux',
                               keylog='MBFILE')
             self.frame.header['BIASSUB'] = (True,
@@ -76,9 +93,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.log.info("fit_flat")
 
     def stack_biases(self):
+
         # get current group id
-        if 'GRPID' in self.frame.header:
-            grpid = self.frame.header['GRPID'].strip()
+        if 'GROUPID' in self.frame.header:
+            grpid = self.frame.header['GROUPID'].strip()
         else:
             grpid = None
         # how many biases do we have?
@@ -97,11 +115,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.write_proctab()
 
     def stack_darks(self):
+
         # get current group id
-        if 'GRPID' in self.frame.header:
-            grpid = self.frame.header['GRPID'].strip()
+        if 'GROUPID' in self.frame.header:
+            grpid = self.frame.header['GROUPID'].strip()
         else:
             grpid = None
+
         # how many darks do we have?
         combine_list = self.n_proctab(target_type='DARK', target_group=grpid)
         self.log.info("number of darks = %d" % len(combine_list))
