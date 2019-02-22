@@ -10,12 +10,12 @@ class ProctabPrimitives(PrimitivesBASE):
         super(ProctabPrimitives, self).__init__()
 
     def new_proctab(self):
-        cnames = ('CID', 'DID', 'TYPE', 'GRPID', 'TTIME', 'CAM', 'GRAT', 'GANG',
-                  'CWAVE', 'BIN', 'FILT', 'MJD', 'FRAMENO', 'STAGE', 'SUFF',
-                  'OFNAME', 'OBJECT')
-        dtypes = ('S24', 'int64', 'S9', 'S12', 'float64', 'S4', 'S5', 'float64',
-                  'float64', 'S4', 'S5', 'float64', 'int32', 'int32', 'S5',
-                  'S25', 'S25')
+        cnames = ('FRAMENO', 'CID', 'DID', 'TYPE', 'GRPID', 'TTIME', 'CAM',
+                  'GRAT', 'GANG', 'CWAVE', 'BIN', 'FILT', 'MJD', 'STAGE',
+                  'SUFF', 'OFNAME', 'TARGNAME')
+        dtypes = ('int32', 'S24', 'int64', 'S9', 'S12', 'float64', 'S4',
+                  'S5', 'float64', 'float64', 'S4', 'S5', 'float64', 'int32',
+                  'S5', 'S25', 'S25')
         meta = {'KCWI DRP PROC TABLE': 'new table'}
         self.proctab = Table(names=cnames, dtype=dtypes, meta=meta)
         # prevent string column truncation
@@ -26,10 +26,11 @@ class ProctabPrimitives(PrimitivesBASE):
     def read_proctab(self, tfil='kcwi.proc'):
         if os.path.isfile(tfil):
             self.log.info("reading proc table file: %s" % tfil)
-            self.proctab = Table.read(tfil, format='ascii')
-            self.proctab.dtypes = ('S24', 'int64', 'S9', 'S12', 'S4', 'S5',
-                                   'float64', 'float64', 'S4', 'S5', 'float64',
-                                   'int32', 'int32', 'S5', 'S25', 'S25')
+            self.proctab = Table.read(tfil, format='ascii.fixed_width')
+            self.proctab.dtypes = ('int32', 'S24', 'int64', 'S9', 'S12',
+                                   'float64', 'S4', 'S5', 'float64', 'float64',
+                                   'S4', 'S5', 'float64', 'int32', 'S5', 'S25',
+                                   'S25')
         else:
             self.log.info("proc table file not found: %s" % tfil)
             self.new_proctab()
@@ -51,7 +52,7 @@ class ProctabPrimitives(PrimitivesBASE):
             else:
                 over_write = False
 
-            self.proctab.write(filename=tfil, format='ascii',
+            self.proctab.write(filename=tfil, format='ascii.fixed_width',
                                overwrite=over_write)
             self.log.info("writing proc table file: %s" % tfil)
         else:
@@ -59,7 +60,7 @@ class ProctabPrimitives(PrimitivesBASE):
 
     def update_proctab(self, suffix='raw', newtype=None):
         if self.frame is not None and self.proctab is not None:
-            stages = {'raw': 0,
+            stages = {'RAW': 0,
                       'int': 1,
                       'intd': 2,
                       'intf': 3,
@@ -80,7 +81,8 @@ class ProctabPrimitives(PrimitivesBASE):
                 dto = self.frame.header['DATE-OBS']
                 fno = self.frame.header['FRAMENO']
                 self.frame.header['GROUPID'] = "%s-%s" % (dto, fno)
-            new_row = [self.frame.header['STATEID'],
+            new_row = [self.frame.header['FRAMENO'],
+                       self.frame.header['STATEID'],
                        self.frame.header['CCDCFG'],
                        self.frame.header['IMTYPE'],
                        self.frame.header['GROUPID'],
@@ -92,17 +94,17 @@ class ProctabPrimitives(PrimitivesBASE):
                        self.frame.header['BINNING'],
                        self.frame.header['BFILTNAM'],
                        self.frame.header['MJD'],
-                       self.frame.header['FRAMENO'],
                        stage,
                        suffix,
                        self.frame.header['OFNAME'],
-                       self.frame.header['OBJECT'].replace(" ", "")]
+                       self.frame.header['TARGNAME'].replace(" ", "")]
         else:
             new_row = None
-        print("Attempting to add %s" % str(new_row))
+        # print("Attempting to add %s" % str(new_row))
         self.proctab.add_row(new_row)
         self.proctab = unique(self.proctab, keys=['CID', 'FRAMENO', 'STAGE'],
                               keep='last')
+        self.proctab.sort('FRAMENO')
 
     def n_proctab(self, target_type=None, target_group=None, nearest=False):
         if target_type is not None and self.proctab is not None:
