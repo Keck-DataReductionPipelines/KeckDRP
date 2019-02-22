@@ -1,6 +1,6 @@
 
 
-def make_science(p, frame):
+def process_object(p, frame):
     # do reduction for a science frame
     p.set_frame(frame)
     p.read_proctab()
@@ -14,6 +14,7 @@ def make_science(p, frame):
         p.remove_badcols()
         p.remove_crs()
         p.rectify_image()
+        p.subtract_dark()
         p.apply_flat()
         p.subtract_sky()
         p.make_cube()

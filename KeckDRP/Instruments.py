@@ -79,7 +79,7 @@ class KCWI(Instrument):
             domeflat='process_dome_flats',
             contbars='process_contbars',
             arclamp='process_arclamps',
-            object='make_science')
+            object='process_object')
 
     def get_primitives_class(self):
         from KeckDRP.KCWI import kcwi_primitives
