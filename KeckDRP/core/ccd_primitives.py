@@ -78,7 +78,7 @@ class CcdPrimitives(PrimitivesBASE):
         # get output image dimensions
         max_sec = max(tsec)
         # create new blank image
-        new = np.zeros((max_sec[1]+1, max_sec[3]+1), dtype=np.uint16)
+        new = np.zeros((max_sec[1]+1, max_sec[3]+1), dtype=np.float64)
         # loop over amps
         for ia in range(namps):
             # input range indices
