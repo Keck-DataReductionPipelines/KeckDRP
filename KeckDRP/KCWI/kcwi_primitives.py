@@ -76,14 +76,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         tab = self.n_proctab(target_type='MDARK', nearest=True)
         self.log.info("%d master dark frames found" % len(tab))
         if len(tab) > 0:
-            self.img_subtract(tab, suffix='master_bias', indir='redux',
+            self.img_subtract(tab, suffix='master_dark', indir='redux',
                               keylog='MDFILE')
             self.frame.header['DARKSUB'] = (True,
                                             self.keyword_comments['DARKSUB'])
-            logstr = self.subtract_bias.__module__ + "." + \
-                     self.subtract_bias.__qualname__
+            logstr = self.subtract_dark.__module__ + "." + \
+                     self.subtract_dark.__qualname__
             self.frame.header['HISTORY'] = logstr
-            self.log.info(self.subtract_bias.__qualname__)
+            self.log.info(self.subtract_dark.__qualname__)
         else:
             self.log.warn('No Master Dark frame found. NO DARK SUBTRACTION')
 
