@@ -92,8 +92,8 @@ class ImgmathPrimitives(PrimitivesBASE):
                 subtrahend = KeckDRP.KcwiCCD.read(infile, unit=unit)
 
             if subtrahend is not None:
-                result = self.frame.subtract(subtrahend)
-                result.meta = self.frame.meta
+                result = self.frame.subtract(subtrahend,
+                                             handle_meta="first_found")
                 self.set_frame(result)
                 if keylog is not None:
                     if keylog in self.keyword_comments:
