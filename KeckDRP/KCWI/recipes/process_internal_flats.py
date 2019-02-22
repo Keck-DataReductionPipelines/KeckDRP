@@ -1,5 +1,6 @@
 from ... import conf
 
+
 def process_internal_flats(p, frame):
     # do basic CCD reduction
     p.set_frame(frame)
@@ -14,6 +15,7 @@ def process_internal_flats(p, frame):
     p.remove_badcols()
     p.remove_crs()
     p.rectify_image()
+    p.subtract_dark()
 
     # update proc table
     p.update_proctab(suffix='int')
