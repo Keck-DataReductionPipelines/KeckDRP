@@ -12,6 +12,37 @@ class KcwiCCD(CCDData):
             raise ValueError("can't have both header and meta.")
         super().__init__(*args, **kwd)
 
+    def camera(self):
+        if 'CAMERA' in self.header:
+            if 'BLUE' in self.header['CAMERA']:
+                return 0
+            elif 'RED' in self.header['CAMERA']:
+                return 1
+            else:
+                return -1
+        else:
+            return -1
+
+    def nasmask(self):
+        if self.camera() == 0:      # Blue
+            if 'Mask' in self.header['BNASNAM']:
+                return True
+            else:
+                return False
+        elif self.camera() == 1:    # Red
+            if 'Mask' in self.header['RNASNAM']:
+                return True
+            else:
+                return False
+        else:
+            raise ValueError("unable to determine mask: CAMERA undefined")
+
+    def xbinsize(self):
+        return int(self.header['BINNING'].split(',')[0])
+
+    def ybinsize(self):
+        return int(self.header['BINNING'].split(',')[-1])
+
     def imtype(self):
         # set ILLUM keyword
         # ARCS

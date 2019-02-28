@@ -16,6 +16,7 @@ def process_internal_flats(p, frame):
     p.remove_crs()
     p.rectify_image()
     p.subtract_dark()
+    p.subtract_scattered_light()
 
     # update proc table
     p.update_proctab(suffix='int')

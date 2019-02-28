@@ -7,6 +7,7 @@ from .. import conf
 from . import KcwiConf
 
 import numpy as np
+import scipy as sp
 import scipy.interpolate as interp
 import pylab as pl
 import time
@@ -203,6 +204,49 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.write_proctab()
 
     def subtract_scattered_light(self):
+        if self.frame.nasmask():
+            self.log.info("NAS Mask in: skipping scattered light subtraction.")
+        else:
+            # Get size of image
+            siz = self.frame.data.shape
+            # Get x range for scattered light
+            x0 = int(siz[1] / 2 - 180 / self.frame.xbinsize())
+            x1 = int(siz[1] / 2 + 180 / self.frame.xbinsize())
+            # Get y limits
+            y0 = 0
+            y1 = int(siz[0] / 2 - 1)
+            y2 = y1 + 1
+            y3 = siz[0]
+            # print("x limits: %d, %d, y limits: %d, %d" % (x0, x1, y0, y3))
+            # Y data values
+            yvals = np.nanmedian(self.frame.data[y0:y3, x0:x1], axis=1)
+            # X data values
+            xvals = np.arange(len(yvals), dtype=np.float)
+            # Break points
+            nbkpt = int(siz[1]/40.)
+            bkpt = xvals[nbkpt:-nbkpt:nbkpt]
+            # B-spline fit
+            bspl = sp.interpolate.LSQUnivariateSpline(xvals, yvals, bkpt)
+            # plot
+            pl.ion()
+            pl.plot(xvals, yvals, 'ro')
+            legend = ["Scat",]
+            xx = np.linspace(0, max(xvals), len(yvals)*5)
+            pl.plot(xx, bspl(xx), 'b-')
+            legend.append("fit")
+            pl.xlabel("y pixel")
+            pl.ylabel("e-")
+            pl.title("Scat Light img #%d" % (self.frame.header['FRAMENO']))
+            pl.legend(legend)
+            pl.pause(KcwiConf.PLOTPAUSE)
+            # Scattered light vector
+            scat = bspl(xvals)
+            # Subtract scattered light
+            for ix in range(0, siz[1]):
+                self.frame.data[y0:y3, ix] = \
+                    self.frame.data[y0:y3, ix] - scat
+            self.log.info("Starting scattered light subtraction")
+
         self.log.info("subtract_scattered_light")
 
     def solve_geom(self):

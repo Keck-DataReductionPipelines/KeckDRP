@@ -15,6 +15,7 @@ def process_object(p, frame):
         p.remove_crs()
         p.rectify_image()
         p.subtract_dark()
+        p.subtract_scattered_light()
         p.apply_flat()
         p.subtract_sky()
         p.make_cube()
