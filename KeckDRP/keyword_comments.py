@@ -10,6 +10,7 @@ keyword_comments = {
     "DARKLIST": "dark img #s combined",
     "MDFILE": "master dark file",
     "DARKSUB": "was master dark subtracted?",
+    "SCATSUB": "was scattered light subtracted?",
     "FLATLIST": "flat img #s combined",
     "MFFILE": "master flat file",
     "DOMELIST": "dome img #s combined",

@@ -204,9 +204,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.write_proctab()
 
     def subtract_scattered_light(self):
+        # keyword of record
+        key = 'SCATSUB'
         if self.frame.nasmask():
             self.log.info("NAS Mask in: skipping scattered light subtraction.")
+            self.frame.header[key] = (False, self.keyword_comments[key])
         else:
+
             # Get size of image
             siz = self.frame.data.shape
             # Get x range for scattered light
@@ -238,16 +242,23 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.ylabel("e-")
             pl.title("Scat Light img #%d" % (self.frame.header['FRAMENO']))
             pl.legend(legend)
-            pl.pause(KcwiConf.PLOTPAUSE)
+            if KcwiConf.INTER:
+                input("Next? <cr>: ")
+            else:
+                pl.pause(KcwiConf.PLOTPAUSE)
             # Scattered light vector
             scat = bspl(xvals)
             # Subtract scattered light
+            self.log.info("Starting scattered light subtraction")
             for ix in range(0, siz[1]):
                 self.frame.data[y0:y3, ix] = \
                     self.frame.data[y0:y3, ix] - scat
-            self.log.info("Starting scattered light subtraction")
+            self.frame.header[key] = (True, self.keyword_comments[key])
 
-        self.log.info("subtract_scattered_light")
+        logstr = self.subtract_scattered_light.__module__ + "." + \
+                 self.subtract_scattered_light.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(self.subtract_scattered_light.__qualname__)
 
     def solve_geom(self):
         self.log.info("solve_geom")
