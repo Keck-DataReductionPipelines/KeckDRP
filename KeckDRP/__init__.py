@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-The KCWIPyDRP is the Python version of the KCWI pipeline
+The KeckDRP is the Python infrastructure for Keck instrument pipelines
 """
 
 # Affiliated packages may add whatever they like to this file, but
