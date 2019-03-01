@@ -1,4 +1,5 @@
 from astropy.nddata import CCDData
+from .KCWI import KcwiConf
 
 
 class KcwiCCD(CCDData):
@@ -42,6 +43,18 @@ class KcwiCCD(CCDData):
 
     def ybinsize(self):
         return int(self.header['BINNING'].split(',')[-1])
+
+    def minoscanpix(self):
+        return KcwiConf.MINOSCANPIX
+
+    def oscanbuf(self):
+        return KcwiConf.OSCANBUF
+
+    def plotpause(self):
+        return KcwiConf.PLOTPAUSE
+
+    def inter(self):
+        return KcwiConf.INTER
 
     def imtype(self):
         # set ILLUM keyword
