@@ -44,6 +44,17 @@ class Instrument:
                 pass
 
 
+class KPF(Instrument):
+    """Define the KPF Instrument Class
+
+    Here we provide a dictionary that defines image types and how those
+    types are mapped to reduction recipes.  We also override the generic
+    primitive class with KPF-specific primitives.
+    """
+
+    def __init__(self):
+        super(KPF, self).__init__()
+
 class KCWI(Instrument):
     """Define the KCWI Instrument Class
 
