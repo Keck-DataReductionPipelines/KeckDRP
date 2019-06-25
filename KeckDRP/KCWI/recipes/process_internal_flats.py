@@ -27,5 +27,6 @@ def process_internal_flats(p, frame):
     p.log.info("flat reduced")
 
     p.stack_internal_flats()
+    p.fit_flat()
 
 

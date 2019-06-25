@@ -7,8 +7,18 @@ def process_contbars(p, frame):
     if p.in_proctab():
         p.log.warning("Already processed")
         return
+    p.trim_oscan()
+    p.correct_gain()
+    p.remove_badcols()
+    p.rectify_image()
+
     # update proc table
-    p.update_proctab()
+    p.update_proctab(suffix='int')
     p.write_proctab()
-    p.log.info("contbars counted")
+
+    # write image
+    p.write_image(suffix='int')
+    p.log.info("contbars reduced")
+
+    p.trace_bars()
 

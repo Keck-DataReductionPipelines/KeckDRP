@@ -89,9 +89,59 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.log.warn('No Master Dark frame found. NO DARK SUBTRACTION')
 
     def fit_flat(self):
-        pass
-
-        self.log.info("fit_flat")
+        tab = self.n_proctab(target_type='FLAT', nearest=True)
+        self.log.info("%d flat stacks found" % len(tab))
+        # disable this for now
+        if len(tab) > 10:
+            idl_reference_procedure = self.get_idl_counterpart(
+                target_type='CONTBARS')
+            wavemap = self.read_idl_copy(idl_reference_procedure,
+                                         suffix='wavemap')
+            slicemap = self.read_idl_copy(idl_reference_procedure,
+                                          suffix='slicemap')
+            posmap = self.read_idl_copy(idl_reference_procedure,
+                                        suffix='posmap')
+            if posmap is None:
+                self.log.warn("No idl reference file found. Stacking is impossible")
+                return
+            newflat = self.frame
+            blueslice = 12
+            blueleft = 30
+            blueright = 40
+            p_order = 7
+            qblue = np.where((slicemap.data == blueslice) &
+                             (posmap.data >= blueleft) &
+                             (posmap.data <= blueright))
+            xfb = wavemap.data[qblue]
+            yfb = newflat.data[qblue]
+            s = np.argsort(xfb)
+            xfb = xfb[s]
+            yfb = yfb[s]
+            invar = 1 / (1 + np.abs(yfb))
+            n = 100
+            bkpt = np.min(wavemap.data[qblue]) + np.arange(n + 1) * \
+                   (np.max(wavemap.data[qblue]) - np.min(wavemap.data[qblue])) / n
+            #            bkpty = interp.griddata(xfb, yfb, bkpt, method = 'cubic')
+            bkpty = interp.griddata(xfb, yfb, bkpt)
+            t, c, k = interp.splrep(bkpt, bkpty, k=3)
+            #            flat_fit_coeffs = np.polyfit(bkpt, bkpty, p_order)
+            #            t, c, k = interp.splrep(bkpt, bkpty, k=p_order)
+            #            flat_fit = np.polyval(flat_fit_coeffs, bkpt)
+            spline = interp.BSpline(t, c, k, extrapolate=False)
+            # plot data and fit
+            pl.ion()
+            pl.plot(xfb, yfb)
+            pl.plot(bkpt, spline(bkpt))
+            pl.xlabel("angstrom")
+            pl.ylabel("counts")
+            pl.pause(KcwiConf.PLOTPAUSE)
+            pl.clf()
+            time.sleep(15)
+            self.fit_flat()  # CC
+            self.update_proctab(suffix='master_flat', newtype='MFLAT')
+            self.log.info("master flat produced")
+        else:
+            self.log.info("fit_flat")
 
     def stack_biases(self):
 
@@ -151,53 +201,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.update_proctab(suffix='flat_stack', newtype='FLAT')
             self.write_image(suffix='flat_stack')
             self.log.info("flat stack produced")
-            idl_reference_procedure = self.get_idl_counterpart(
-                target_type='CONTBARS')
-            wavemap = self.read_idl_copy(idl_reference_procedure,
-                                         suffix='wavemap')
-            slicemap = self.read_idl_copy(idl_reference_procedure,
-                                          suffix='slicemap')
-            posmap = self.read_idl_copy(idl_reference_procedure,
-                                        suffix='posmap')
-            if posmap is None:
-                self.log.warn("No idl reference file found. Stacking is impossible")
-                return
-            newflat = self.frame
-            blueslice = 12
-            blueleft = 30
-            blueright = 40
-            p_order = 7
-            qblue = np.where((slicemap.data == blueslice) &
-                             (posmap.data >= blueleft) &
-                             (posmap.data <= blueright))
-            xfb = wavemap.data[qblue]
-            yfb = newflat.data[qblue]
-            s = np.argsort(xfb)
-            xfb = xfb[s]
-            yfb = yfb[s]
-            invar = 1 / (1 + np.abs(yfb))
-            n = 100
-            bkpt = np.min(wavemap.data[qblue]) + np.arange(n + 1) * \
-                (np.max(wavemap.data[qblue]) - np.min(wavemap.data[qblue])) / n
-            #            bkpty = interp.griddata(xfb, yfb, bkpt, method = 'cubic')
-            bkpty = interp.griddata(xfb, yfb, bkpt)
-            t, c, k = interp.splrep(bkpt, bkpty, k=3)
-            #            flat_fit_coeffs = np.polyfit(bkpt, bkpty, p_order)
-            #            t, c, k = interp.splrep(bkpt, bkpty, k=p_order)
-            #            flat_fit = np.polyval(flat_fit_coeffs, bkpt)
-            spline = interp.BSpline(t, c, k, extrapolate=False)
-            # plot data and fit
-            pl.ion()
-            pl.plot(xfb, yfb)
-            pl.plot(bkpt, spline(bkpt))
-            pl.xlabel("angstrom")
-            pl.ylabel("counts")
-            pl.pause(KcwiConf.PLOTPAUSE)
-            pl.clf()
-            time.sleep(15)
-            self.fit_flat()  # CC
-            self.update_proctab(suffix='master_flat', newtype='MFLAT')
-            self.log.info("master flat produced")
+
         else:
             self.log.info('need %s flats to produce master' %
                           KcwiConf.MINIMUM_NUMBER_OF_FLATS)
@@ -259,6 +263,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                  self.subtract_scattered_light.__qualname__
         self.frame.header['HISTORY'] = logstr
         self.log.info(self.subtract_scattered_light.__qualname__)
+
+    def trace_bars(self):
+        self.log.info("trace_bars")
 
     def solve_geom(self):
         self.log.info("solve_geom")

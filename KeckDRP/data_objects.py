@@ -1,5 +1,14 @@
-from astropy.nddata import CCDData
+from astropy.nddata import CCDData, NDData
 from .KCWI import KcwiConf
+
+
+class KcwiBarSpec(NDData):
+    """
+    The KCWI class for extracted bar spectra
+    """
+    def __init__(self, wave, flux):
+        self.wave = wave
+        self.flux = flux
 
 
 class KcwiCCD(CCDData):

@@ -78,9 +78,10 @@ class ProctabPrimitives(PrimitivesBASE):
             if self.frame.header['STATEID'].strip() == '0':
                 self.frame.header['STATEID'] = 'NONE'
             if 'GROUPID' not in self.frame.header:
-                dto = self.frame.header['DATE-OBS']
-                fno = self.frame.header['FRAMENO']
-                self.frame.header['GROUPID'] = "%s-%s" % (dto, fno)
+                self.frame.header['GROUPID'] = "NONE"
+            #    dto = self.frame.header['DATE-OBS']
+            #    fno = self.frame.header['FRAMENO']
+            #    self.frame.header['GROUPID'] = "%s-%s" % (dto, fno)
             new_row = [self.frame.header['FRAMENO'],
                        self.frame.header['STATEID'],
                        self.frame.header['CCDCFG'],
