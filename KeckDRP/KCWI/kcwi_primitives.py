@@ -9,6 +9,7 @@ from . import KcwiConf
 import numpy as np
 import scipy as sp
 import scipy.interpolate as interp
+from scipy.signal import find_peaks
 import pylab as pl
 import time
 ################
@@ -264,8 +265,122 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.frame.header['HISTORY'] = logstr
         self.log.info(self.subtract_scattered_light.__qualname__)
 
+    def find_bars(self):
+        self.log.info("Finding continuum bars")
+        # initialize
+        midcntr = []
+        # get image dimensions
+        nx = self.frame.data.shape[1]
+        ny = self.frame.data.shape[0]
+        # get binning
+        ybin = self.frame.ybinsize()
+        win = int(10 / ybin)
+        # select from center rows of image
+        midy = int(ny / 2)
+        midvec = np.median(self.frame.data[(midy-win):(midy+win+1), :], axis=0)
+        # set threshold for peak finding
+        midavg = np.average(midvec)
+        self.log.info("peak threshold = %f" % midavg)
+        # find peaks above threshold
+        midpeaks, _ = find_peaks(midvec, height=midavg)
+        # do we have the requisite number?
+        if len(midpeaks) != 120:
+            self.log.error("Did not find 120 peaks: n peaks = %d"
+                           % len(midpeaks))
+        else:
+            self.log.info("found %d bars" % len(midpeaks))
+            # plot the peak positions
+            pl.ion()
+            pl.plot(midvec, '-')
+            pl.plot(midpeaks, midvec[midpeaks], 'rx')
+            pl.plot([0, nx], [midavg, midavg], '--', color='grey')
+            # calculate the bar centroids
+            for peak in midpeaks:
+                xs = list(range(peak-win, peak+win+1))
+                ys = midvec[xs] - np.nanmin(midvec[xs])
+                xc = np.sum(xs*ys) / np.sum(ys)
+                pl.plot([xc, xc], [midavg, midvec[peak]], '-.', color='grey')
+                midcntr.append(xc)
+            pl.plot(midcntr, midvec[midpeaks], 'gx')
+            # pl.show()
+            pl.pause(self.frame.plotpause())
+            self.log.info("Continuum bars centroided")
+        self.midcntr = midcntr
+        self.midrow = midy
+        self.win = win
+
     def trace_bars(self):
-        self.log.info("trace_bars")
+        self.log.info("Tracing continuum bars")
+        if len(self.midcntr) < 1:
+            self.log.error("No bars found")
+        else:
+            # initialize
+            samp = int(80 / self.frame.ybinsize())
+            win = self.win
+            xi = []     # x input
+            xo = []     # x output
+            yi = []     # y input (and output)
+            barid = []  # bar id number
+            slid = []   # slice id number
+            # loop over bars
+            for barn, barx in enumerate(self.midcntr):
+                # nearest pixel to bar center
+                barxi = int(barx + 0.5)
+                print("bar number %d is at %.3f" % (barn, barx))
+                # middle row data
+                xi.append(barx)
+                xo.append(barx)
+                yi.append(self.midrow)
+                barid.append(barn)
+                slid.append(int(barn/5))
+                # trace up
+                samy = self.midrow + samp
+                while samy < (self.frame.data.shape[0] - win):
+                    ys = np.median(
+                        self.frame.data[(samy - win):(samy + win + 1),
+                                        (barxi - win):(barxi + win + 1)],
+                        axis=0)
+                    ys = ys - np.nanmin(ys)
+                    xs = list(range(barxi - win, barxi + win + 1))
+                    xc = np.sum(xs * ys) / np.sum(ys)
+                    xi.append(xc)
+                    xo.append(barx)
+                    yi.append(samy)
+                    barid.append(barn)
+                    slid.append(int(barn/5))
+                    if barn == 57:
+                        print("bar 57 - xi: %.3f, xo: %.3f, yi: %d" %
+                              (xc, barx, samy))
+                    samy += samp
+                # trace down
+                samy = self.midrow - samp
+                while samy >= win:
+                    ys = np.median(
+                        self.frame.data[(samy - win):(samy + win + 1),
+                                        (barxi - win):(barxi + win + 1)],
+                        axis=0)
+                    ys = ys - np.nanmin(ys)
+                    xs = list(range(barxi - win, barxi + win + 1))
+                    xc = np.sum(xs * ys) / np.sum(ys)
+                    xi.append(xc)
+                    xo.append(barx)
+                    yi.append(samy)
+                    barid.append(barn)
+                    slid.append(int(barn / 5))
+
+                    if barn == 57:
+                        print("bar 57 - xi: %.3f, xo: %.3f, yi: %d" %
+                              (xc, barx, samy))
+                    samy -= samp
+            # end loop over bars
+            yo = yi
+            pl.clf()
+            pl.ioff()
+            pl.plot(xi, yi, 'x', ms=0.5)
+            pl.plot(self.midcntr, [self.midrow]*120, 'x', color='red')
+            pl.show()
+            # fit transform
+            # write out coeffs
 
     def solve_geom(self):
         self.log.info("solve_geom")

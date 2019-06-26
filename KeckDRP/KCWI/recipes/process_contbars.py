@@ -20,5 +20,6 @@ def process_contbars(p, frame):
     p.write_image(suffix='int')
     p.log.info("contbars reduced")
 
+    p.find_bars()
     p.trace_bars()
 
