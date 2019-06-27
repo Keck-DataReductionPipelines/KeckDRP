@@ -10,6 +10,8 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate as interp
 from scipy.signal import find_peaks
+from skimage import transform as tf
+from astropy.table import Table
 import pylab as pl
 import time
 ################
@@ -35,6 +37,46 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             else:
                 self.frame.write(outfn, overwrite=conf.OVERWRITE)
                 self.log.info("output file: %s" % outfn)
+
+    def write_table(self, table=None, suffix='table', names=None,
+                    comment=None, keywords=None):
+        if suffix is not None and table is not None:
+            origfn = self.frame.header['OFNAME']
+            outfn = os.path.join(conf.REDUXDIR,
+                                 origfn.split('.')[0]+'_'+suffix+'.fits')
+            if not conf.OVERWRITE and os.path.exists(outfn):
+                self.log.error("output file exists: %s" % outfn)
+            else:
+                t = Table(table, names=names)
+                t.meta['OFNAME'] = origfn
+                if comment:
+                    t.meta['COMMENT'] = comment
+                if keywords:
+                    for k, v in keywords.items():
+                        t.meta[k] = v
+                t.write(outfn, format='fits')
+                self.log.info("output file: %s" % outfn)
+
+    def read_table(self, tab=None, indir=None, suffix=None):
+        if tab is not None:
+            flist = tab['OFNAME']
+            if indir is None:
+                pref = '.'
+            else:
+                pref = indir
+
+            if suffix is None:
+                suff = '.fits'
+            else:
+                suff = '_' + suffix + '.fits'
+            for f in flist:
+                infile = os.path.join(pref, f.split('.')[0] + suff)
+                self.log.info("reading table: %s" % infile)
+                t = Table.read(infile, format='fits')
+            return t
+        else:
+            self.log.error("No table to read")
+            return None
 
     def write_geom(self, suffix=None):
         if suffix is not None:
@@ -326,7 +368,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             for barn, barx in enumerate(self.midcntr):
                 # nearest pixel to bar center
                 barxi = int(barx + 0.5)
-                print("bar number %d is at %.3f" % (barn, barx))
+                # print("bar number %d is at %.3f" % (barn, barx))
                 # middle row data
                 xi.append(barx)
                 xo.append(barx)
@@ -343,12 +385,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     ys = ys - np.nanmin(ys)
                     xs = list(range(barxi - win, barxi + win + 1))
                     xc = np.sum(xs * ys) / np.sum(ys)
-                    xi.append(xc)
-                    xo.append(barx)
-                    yi.append(samy)
-                    barid.append(barn)
-                    slid.append(int(barn/5))
-                    if barn == 57:
+                    if np.nanmax(ys) > 1500:
+                        xi.append(xc)
+                        xo.append(barx)
+                        yi.append(samy)
+                        barid.append(barn)
+                        slid.append(int(barn/5))
+                    # disable for now
+                    if barn == 157:
                         print("bar 57 - xi: %.3f, xo: %.3f, yi: %d" %
                               (xc, barx, samy))
                     samy += samp
@@ -362,25 +406,83 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     ys = ys - np.nanmin(ys)
                     xs = list(range(barxi - win, barxi + win + 1))
                     xc = np.sum(xs * ys) / np.sum(ys)
-                    xi.append(xc)
-                    xo.append(barx)
-                    yi.append(samy)
-                    barid.append(barn)
-                    slid.append(int(barn / 5))
-
-                    if barn == 57:
+                    if np.nanmax(ys) > 1500:
+                        xi.append(xc)
+                        xo.append(barx)
+                        yi.append(samy)
+                        barid.append(barn)
+                        slid.append(int(barn / 5))
+                    # disable for now
+                    if barn == 157:
                         print("bar 57 - xi: %.3f, xo: %.3f, yi: %d" %
                               (xc, barx, samy))
                     samy -= samp
             # end loop over bars
+            # create source and destination coords
             yo = yi
+            dst = np.column_stack((xi, yi))
+            src = np.column_stack((xo, yo))
+            # plot them
             pl.clf()
-            pl.ioff()
+            pl.ion()
+            # pl.ioff()
             pl.plot(xi, yi, 'x', ms=0.5)
             pl.plot(self.midcntr, [self.midrow]*120, 'x', color='red')
-            pl.show()
-            # fit transform
-            # write out coeffs
+            # pl.show()
+            pl.pause(self.frame.plotpause())
+            self.write_table(table=[src, dst], names=('src', 'dst'),
+                             suffix='trace',
+                             comment=['Source and destination fiducial points',
+                                      'Derived from KCWI continuum bars images',
+                                      'For defining spatial transformation'],
+                             keywords={'MIDROW': self.midrow,
+                                       'WINDOW': self.win})
+            if self.frame.saveintims():
+                # fit transform
+                self.log.info("Fitting spatial control points")
+                tform = tf.estimate_transform('polynomial', src, dst, order=3)
+                self.log.info("Transforming bars image")
+                warped = tf.warp(self.frame.data, tform)
+                # write out warped image
+                self.frame.data = warped
+                self.write_image(suffix='warped')
+                self.log.info("Transformed bars produced")
+
+    def extract_arcs(self):
+        self.log.info("Extracting arc spectra")
+        tab = self.n_proctab(target_type='CONTBARS', nearest=True)
+        self.log.info("%d continuum bars frames found" % len(tab))
+        trace = self.read_table(tab=tab, indir='redux', suffix='trace')
+        src = trace['src']
+        dst = trace['dst']
+        midrow = trace.meta['MIDROW']
+        win = trace.meta['WINDOW']
+        self.log.info("Fitting spatial control points")
+        tform = tf.estimate_transform('polynomial', src, dst, order=3)
+        self.log.info("Transforming arc image")
+        warped = tf.warp(self.frame.data, tform)
+        if self.frame.saveintims():
+            # write out warped image
+            self.frame.data = warped
+            self.write_image(suffix='warped')
+            self.log.info("Transformed arcs produced")
+        # extract arcs
+        self.log.info("Extracting arcs")
+        arcs = []
+        for xy in src:
+            if xy[1] == midrow:
+                xi = int(xy[0]+0.5)
+                arc = np.median(
+                    warped[:, (xi - win):(xi + win + 1)], axis=1)
+                arc = arc - np.nanmin(arc)
+                pl.clf()
+                # pl.ioff()
+                pl.ion()
+                pl.plot(arc)
+                pl.title("Bar pos %.3f" % xy[0])
+                # pl.show()
+                arcs.append(arc)
+                pl.pause(self.frame.plotpause())
 
     def solve_geom(self):
         self.log.info("solve_geom")

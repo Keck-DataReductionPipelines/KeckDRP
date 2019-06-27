@@ -3,3 +3,4 @@ ccdproc
 numpy
 scipy
 lacosmicx
+skimage

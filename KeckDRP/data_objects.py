@@ -62,6 +62,9 @@ class KcwiCCD(CCDData):
     def plotpause(self):
         return KcwiConf.PLOTPAUSE
 
+    def saveintims(self):
+        return KcwiConf.SAVEINTIMS
+
     def inter(self):
         return KcwiConf.INTER
 

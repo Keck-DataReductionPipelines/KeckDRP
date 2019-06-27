@@ -21,5 +21,6 @@ def process_arclamp(p, frame):
     p.write_image(suffix='int')
     p.log.info("arclamp reduced")
 
+    p.extract_arcs()
     p.solve_geom()
 

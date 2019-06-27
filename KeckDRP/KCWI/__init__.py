@@ -19,6 +19,10 @@ class Conf(_config.ConfigNamespace):
         False,
         'Interactive operation'
     )
+    SAVEINTIMS = _config.ConfigItem(
+        False,
+        'Save intermediate images'
+    )
     PLOTPAUSE = _config.ConfigItem(
         0.5,
         'Pause length between plots in seconds'
