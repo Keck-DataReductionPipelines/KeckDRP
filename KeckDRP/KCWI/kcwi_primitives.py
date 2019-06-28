@@ -25,6 +25,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                      ProctabPrimitives, DevelopmentPrimitives):
 
     def __init__(self):
+        self.midrow = None
+        self.midcntr = None
+        self.win = None
+        self.arcs = None
+        self.nbars = 120
+        self.refbar = 57
+        self.baroffs = None
         super(KcwiPrimitives, self).__init__()
 
     def write_image(self, suffix=None):
@@ -58,6 +65,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 self.log.info("output file: %s" % outfn)
 
     def read_table(self, tab=None, indir=None, suffix=None):
+        # Set up return table
+        retab = None
+        # Construct table file name
         if tab is not None:
             flist = tab['OFNAME']
             if indir is None:
@@ -72,18 +82,17 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             for f in flist:
                 infile = os.path.join(pref, f.split('.')[0] + suff)
                 self.log.info("reading table: %s" % infile)
-                t = Table.read(infile, format='fits')
-            return t
+                retab = Table.read(infile, format='fits')
         else:
             self.log.error("No table to read")
-            return None
+        return retab
 
     def write_geom(self, suffix=None):
         if suffix is not None:
             origfn = self.frame.header['OFNAME']
             outfn = os.path.join(conf.REDUXDIR,
                                  origfn.split('.')[0]+'_'+suffix+'.fits')
-            if not self.conf.OVERWRITE and os.path.exists(outfn):
+            if not conf.OVERWRITE and os.path.exists(outfn):
                 self.log.error("output file exists: %s" % outfn)
             else:
                 # geometry writer goes here
@@ -145,13 +154,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             posmap = self.read_idl_copy(idl_reference_procedure,
                                         suffix='posmap')
             if posmap is None:
-                self.log.warn("No idl reference file found. Stacking is impossible")
+                self.log.warn(
+                    "No idl reference file found. Stacking is impossible")
                 return
             newflat = self.frame
             blueslice = 12
             blueleft = 30
             blueright = 40
-            p_order = 7
+            # p_order = 7
             qblue = np.where((slicemap.data == blueslice) &
                              (posmap.data >= blueleft) &
                              (posmap.data <= blueright))
@@ -160,11 +170,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             s = np.argsort(xfb)
             xfb = xfb[s]
             yfb = yfb[s]
-            invar = 1 / (1 + np.abs(yfb))
+            # invar = 1 / (1 + np.abs(yfb))
             n = 100
             bkpt = np.min(wavemap.data[qblue]) + np.arange(n + 1) * \
-                   (np.max(wavemap.data[qblue]) - np.min(wavemap.data[qblue])) / n
-            #            bkpty = interp.griddata(xfb, yfb, bkpt, method = 'cubic')
+                (np.max(wavemap.data[qblue]) - np.min(wavemap.data[qblue])) / n
+            #          bkpty = interp.griddata(xfb, yfb, bkpt, method = 'cubic')
             bkpty = interp.griddata(xfb, yfb, bkpt)
             t, c, k = interp.splrep(bkpt, bkpty, k=3)
             #            flat_fit_coeffs = np.polyfit(bkpt, bkpty, p_order)
@@ -265,8 +275,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             x1 = int(siz[1] / 2 + 180 / self.frame.xbinsize())
             # Get y limits
             y0 = 0
-            y1 = int(siz[0] / 2 - 1)
-            y2 = y1 + 1
+            # y1 = int(siz[0] / 2 - 1)
+            # y2 = y1 + 1
             y3 = siz[0]
             # print("x limits: %d, %d, y limits: %d, %d" % (x0, x1, y0, y3))
             # Y data values
@@ -281,7 +291,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # plot
             pl.ion()
             pl.plot(xvals, yvals, 'ro')
-            legend = ["Scat",]
+            legend = ["Scat", ]
             xx = np.linspace(0, max(xvals), len(yvals)*5)
             pl.plot(xx, bspl(xx), 'b-')
             legend.append("fit")
@@ -326,9 +336,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # find peaks above threshold
         midpeaks, _ = find_peaks(midvec, height=midavg)
         # do we have the requisite number?
-        if len(midpeaks) != 120:
-            self.log.error("Did not find 120 peaks: n peaks = %d"
-                           % len(midpeaks))
+        if len(midpeaks) != self.nbars:
+            self.log.error("Did not find %d peaks: n peaks = %d"
+                           % (self.nbars, len(midpeaks)))
         else:
             self.log.info("found %d bars" % len(midpeaks))
             # plot the peak positions
@@ -391,10 +401,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         yi.append(samy)
                         barid.append(barn)
                         slid.append(int(barn/5))
-                    # disable for now
-                    if barn == 157:
-                        print("bar 57 - xi: %.3f, xo: %.3f, yi: %d" %
-                              (xc, barx, samy))
                     samy += samp
                 # trace down
                 samy = self.midrow - samp
@@ -413,9 +419,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         barid.append(barn)
                         slid.append(int(barn / 5))
                     # disable for now
-                    if barn == 157:
-                        print("bar 57 - xi: %.3f, xo: %.3f, yi: %d" %
-                              (xc, barx, samy))
                     samy -= samp
             # end loop over bars
             # create source and destination coords
@@ -430,7 +433,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.plot(self.midcntr, [self.midrow]*120, 'x', color='red')
             # pl.show()
             pl.pause(self.frame.plotpause())
-            self.write_table(table=[src, dst], names=('src', 'dst'),
+            self.write_table(table=[src, dst, barid, slid],
+                             names=('src', 'dst', 'barid', 'slid'),
                              suffix='trace',
                              comment=['Source and destination fiducial points',
                                       'Derived from KCWI continuum bars images',
@@ -450,17 +454,24 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
 
     def extract_arcs(self):
         self.log.info("Extracting arc spectra")
+        # Find  and read control points from continuum bars
         tab = self.n_proctab(target_type='CONTBARS', nearest=True)
         self.log.info("%d continuum bars frames found" % len(tab))
         trace = self.read_table(tab=tab, indir='redux', suffix='trace')
-        src = trace['src']
-        dst = trace['dst']
+        src = trace['src']  # source control points
+        dst = trace['dst']  # destination control points
+        barid = trace['barid']
+        slid = trace['slid']
+        # Get other items
         midrow = trace.meta['MIDROW']
         win = trace.meta['WINDOW']
+
         self.log.info("Fitting spatial control points")
         tform = tf.estimate_transform('polynomial', src, dst, order=3)
+
         self.log.info("Transforming arc image")
         warped = tf.warp(self.frame.data, tform)
+        # Write warped arcs if requested
         if self.frame.saveintims():
             # write out warped image
             self.frame.data = warped
@@ -469,20 +480,62 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # extract arcs
         self.log.info("Extracting arcs")
         arcs = []
-        for xy in src:
+        for xyi, xy in enumerate(src):
             if xy[1] == midrow:
                 xi = int(xy[0]+0.5)
                 arc = np.median(
                     warped[:, (xi - win):(xi + win + 1)], axis=1)
-                arc = arc - np.nanmin(arc)
-                pl.clf()
-                # pl.ioff()
-                pl.ion()
-                pl.plot(arc)
-                pl.title("Bar pos %.3f" % xy[0])
-                # pl.show()
+                arc = arc - np.nanmin(arc[100:-100])    # avoid ends
                 arcs.append(arc)
-                pl.pause(self.frame.plotpause())
+                if KcwiConf.INTER:
+                    pl.clf()
+                    # pl.ioff()
+                    pl.ion()
+                    pl.plot(arc)
+                    pl.ylim(bottom=0.)
+                    pl.title("Slice: %d, Bar: %d, pos: %.3f" %
+                             (slid[xyi], barid[xyi], xy[0]))
+                    # pl.show()
+                    pl.pause(self.frame.plotpause())
+                    input("Next? <cr>: ")
+        # Did we get the correct number of arcs?
+        if len(arcs) == self.nbars:
+            self.log.info("Extracted %d arcs" % len(arcs))
+            self.arcs = arcs
+        else:
+            self.log.error("Did not extract %d arcs, extracted %d" %
+                           (self.nbars, len(arcs)))
+
+    def arc_offsets(self):
+        if self.arcs is not None:
+            # Compare with reference arc
+            refarc = self.arcs[self.refbar][:]
+            # number of cross-correlation samples (avoiding ends)
+            nsamp = len(refarc[10:-10])
+            # possible offsets
+            offar = np.arange(1-nsamp, nsamp)
+            # Collect offsets
+            offsets = []
+            for na, arc in enumerate(self.arcs):
+                # Cross-correlate, avoiding junk on the ends
+                xcorr = np.correlate(refarc[10:-10], arc[10:-10], mode='full')
+                # Calculate offset
+                offset = offar[xcorr.argmax()]
+                offsets.append(offset)
+
+                # display if requested
+                if KcwiConf.INTER:
+                    pl.clf()
+                    pl.ion()
+                    pl.plot(refarc, color='green')
+                    pl.plot(np.roll(arc, offset), color='red')
+                    pl.ylim(bottom=0.)
+                    pl.title("Arc %d XCorr, Shift = %d" % (na, offset))
+                    pl.pause(self.frame.plotpause())
+                self.log.info("Arc %d XCorr shift = %d" % (na, offset))
+            self.baroffs = offsets
+        else:
+            self.log.error("No extracted arcs found")
 
     def solve_geom(self):
         self.log.info("solve_geom")
