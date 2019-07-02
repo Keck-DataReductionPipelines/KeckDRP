@@ -10,10 +10,16 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate as interp
 from scipy.signal import find_peaks
+from scipy.ndimage import gaussian_filter1d
 from skimage import transform as tf
 from astropy.table import Table
+import astropy.io.fits as pf
 import pylab as pl
 import time
+import math
+
+import pkg_resources
+
 ################
 # ccdproc usage
 # import KeckDRP
@@ -25,13 +31,19 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                      ProctabPrimitives, DevelopmentPrimitives):
 
     def __init__(self):
+        # KCWI constants
+        self.NBARS = 120    # number of bars in continuum bars images
+        self.REFBAR = 57    # bar number of reference bar
+        self.PIX = 0.0150   # pixel size in mm
+        self.FCAM = 305.0   # focal length of camera in mm
+        self.GAMMA = 4.0    # mean out-of-plane angle for diffraction (deg)
+
         self.midrow = None
         self.midcntr = None
         self.win = None
         self.arcs = None
-        self.nbars = 120
-        self.refbar = 57
         self.baroffs = None
+        self.prelim_disp = None
         super(KcwiPrimitives, self).__init__()
 
     def write_image(self, suffix=None):
@@ -336,9 +348,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # find peaks above threshold
         midpeaks, _ = find_peaks(midvec, height=midavg)
         # do we have the requisite number?
-        if len(midpeaks) != self.nbars:
+        if len(midpeaks) != self.NBARS:
             self.log.error("Did not find %d peaks: n peaks = %d"
-                           % (self.nbars, len(midpeaks)))
+                           % (self.NBARS, len(midpeaks)))
         else:
             self.log.info("found %d bars" % len(midpeaks))
             # plot the peak positions
@@ -499,17 +511,17 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     pl.pause(self.frame.plotpause())
                     input("Next? <cr>: ")
         # Did we get the correct number of arcs?
-        if len(arcs) == self.nbars:
+        if len(arcs) == self.NBARS:
             self.log.info("Extracted %d arcs" % len(arcs))
             self.arcs = arcs
         else:
             self.log.error("Did not extract %d arcs, extracted %d" %
-                           (self.nbars, len(arcs)))
+                           (self.NBARS, len(arcs)))
 
     def arc_offsets(self):
         if self.arcs is not None:
             # Compare with reference arc
-            refarc = self.arcs[self.refbar][:]
+            refarc = self.arcs[self.REFBAR][:]
             # number of cross-correlation samples (avoiding ends)
             nsamp = len(refarc[10:-10])
             # possible offsets
@@ -536,6 +548,52 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.baroffs = offsets
         else:
             self.log.error("No extracted arcs found")
+
+    def calc_prelim_disp(self):
+        # get binning
+        ybin = self.frame.ybinsize()
+        # 0 - compute alpha
+        prelim_alpha = self.frame.grangle() - 13.0 - self.frame.adjang()
+        # 1 - compute preliminary angle of diffraction
+        prelim_beta = self.frame.camang() - prelim_alpha
+        # 2 - compute preliminary dispersion
+        prelim_disp = math.cos(prelim_beta/math.degrees(1.)) / \
+            self.frame.rho() / self.FCAM * (self.PIX*ybin) * 1.e4
+        prelim_disp *= math.cos(self.GAMMA/math.degrees(1.))
+        self.log.info("Initial alpha, beta (deg): %.3f, %.3f" %
+                      (prelim_alpha, prelim_beta))
+        self.log.info("Initial calculated dispersion (A/binned pix): %.3f" %
+                      prelim_disp)
+        self.prelim_disp = prelim_disp
+
+    def read_atlas(self):
+        # What lamp are we using?
+        lamp = self.frame.illum()
+        atpath = os.path.join(pkg_resources.resource_filename(
+            'KeckDRP.KCWI', 'data/'), "%s.fits" % lamp.lower())
+        # Does the atlas file exist?
+        if os.path.exists(atpath):
+            self.log.info("Reading atlas spectrum in: %s" % atpath)
+        else:
+            self.log.error("Atlas spectrum not found for %s" % atpath)
+        # Read the atlas
+        ff = pf.open(atpath)
+        reflux = ff[0].data
+        refwav = np.arange(0, len(reflux)) * ff[0].header['CDELT1'] + \
+            ff[0].header['CRVAL1']
+        ff.close()
+        # Convolve with appropriate Gaussian
+        reflux = gaussian_filter1d(reflux, self.frame.atres()/2.)
+        # Preliminary wavelength solution
+        obsarc = self.arcs[self.REFBAR]
+        obswav = (np.arange(0, len(obsarc)) - int(len(obsarc)/2)) * \
+            self.prelim_disp + self.frame.cwave()
+        #
+        pl.ioff()
+        pl.plot(obswav, obsarc, '-')
+        pl.plot(refwav, reflux, 'r-')
+        pl.xlim(np.nanmin(obswav), np.nanmax(obswav))
+        pl.show()
 
     def solve_geom(self):
         self.log.info("solve_geom")

@@ -23,5 +23,7 @@ def process_arclamp(p, frame):
 
     p.extract_arcs()
     p.arc_offsets()
+    p.calc_prelim_disp()
+    p.read_atlas()
     p.solve_geom()
 

@@ -33,6 +33,98 @@ class KcwiCCD(CCDData):
         else:
             return -1
 
+    def camang(self):
+        if self.camera() == 0:      # Blue
+            key = 'BARTANG'
+        elif self.camera() == 1:    # Red
+            key = 'RARTANG'
+        else:
+            raise ValueError("unable to determine camera angle: "
+                             "CAMERA undefined")
+        return self.header[key]
+
+    def grangle(self):
+        if self.camera() == 0:      # Blue
+            key = 'BGRANGLE'
+        elif self.camera() == 1:    # Red
+            key = 'RGRANGLE'
+        else:
+            raise ValueError("unable to determine grating angle: "
+                             "CAMERA undefined")
+        return self.header[key]
+
+    def grating(self):
+        if self.camera() == 0:      # Blue
+            key = 'BGRATNAM'
+        elif self.camera() == 1:    # Red
+            key = 'RGRATNAM'
+        else:
+            raise ValueError("unable to determine grating: CAMERA undefined")
+        return self.header[key]
+
+    def adjang(self):
+        if 'BH' in self.grating() or 'RH' in self.grating():
+            return 180.0
+        if 'BM' in self.grating() or 'RM' in self.grating():
+            return 0.0
+        if 'BL' in self.grating() or 'RL' in self.grating():
+            return 0.0
+
+    def rho(self):
+        if 'BH1' in self.grating():
+            return 3.751
+        elif 'BH2' in self.grating():
+            return 3.255
+        elif 'BH3' in self.grating():
+            return 2.800
+        elif 'RH1' in self.grating():
+            return 2.420
+        elif 'RH2' in self.grating():
+            return 2.030
+        elif 'RH3' in self.grating():
+            return 1.705
+        elif 'RH4' in self.grating():
+            return 1.435
+        elif 'BM' in self.grating():
+            return 1.900
+        elif 'RM1' in self.grating():
+            return 1.220
+        elif 'RM2' in self.grating():
+            return 0.921
+        elif 'BL' in self.grating():
+            return 0.870
+        elif 'RL' in self.grating():
+            return 0.514
+        else:
+            raise ValueError("unable to compute rho: grating undefined")
+
+    def cwave(self):
+        if self.camera() == 0:      # Blue
+            key = 'BCWAVE'
+        elif self.camera() == 1:    # Red
+            key = 'RCWAVE'
+        else:
+            raise ValueError("unable to determine central wavelength: "
+                             "CAMERA undefined")
+        return self.header[key]
+
+    def atres(self):
+        if 'BH' in self.grating():
+            return 2.5
+        elif 'RH' in self.grating():
+            return 2.5
+        elif 'BM' in self.grating():
+            return 4.0
+        elif 'RM' in self.grating():
+            return 4.0
+        elif 'BL' in self.grating():
+            return 14.0
+        elif 'RL' in self.grating():
+            return 14.0
+        else:
+            raise ValueError("unable to compute atlas resolution: "
+                             "grating undefined")
+
     def nasmask(self):
         if self.camera() == 0:      # Blue
             if 'Mask' in self.header['BNASNAM']:
@@ -69,6 +161,9 @@ class KcwiCCD(CCDData):
         return KcwiConf.INTER
 
     def imtype(self):
+        return self.header['IMTYPE']
+
+    def illum(self):
         # set ILLUM keyword
         # ARCS
         if self.header['IMTYPE'] == 'ARCLAMP':
@@ -107,3 +202,4 @@ class KcwiCCD(CCDData):
             self.header['ILLUM'] = 'Object'
         else:
             self.header['ILLUM'] = 'Test'
+        return self.header['ILLUM']
