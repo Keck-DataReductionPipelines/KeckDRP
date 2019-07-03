@@ -47,6 +47,10 @@ class Conf(_config.ConfigNamespace):
         6,
         'Minimum number of flats'
     )
+    TAPERFRAC = _config.ConfigItem(
+        0.2,
+        'Taper fraction for atlas cross-correlation'
+    )
 
 
 KcwiConf = Conf()

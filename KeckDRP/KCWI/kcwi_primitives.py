@@ -10,7 +10,9 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate as interp
 from scipy.signal import find_peaks
+from scipy import signal
 from scipy.ndimage import gaussian_filter1d
+from scipy.interpolate import interpolate
 from skimage import transform as tf
 from astropy.table import Table
 import astropy.io.fits as pf
@@ -38,12 +40,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.FCAM = 305.0   # focal length of camera in mm
         self.GAMMA = 4.0    # mean out-of-plane angle for diffraction (deg)
 
-        self.midrow = None
-        self.midcntr = None
-        self.win = None
-        self.arcs = None
-        self.baroffs = None
-        self.prelim_disp = None
+        self.midrow = None          # middle row
+        self.midcntr = None         # middle centroids
+        self.win = None             # sample window
+        self.arcs = None            # extracted arcs
+        self.baroffs = None         # pixel offsets relative to ref bar
+        self.prelim_disp = None     # calculated dispersion
+        self.offset_wave = None     # atlas-arc offset in Angstroms
+        self.offset_pix = None      # atlas-arc offset in pixels
         super(KcwiPrimitives, self).__init__()
 
     def write_image(self, suffix=None):
@@ -579,21 +583,76 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # Read the atlas
         ff = pf.open(atpath)
         reflux = ff[0].data
-        refwav = np.arange(0, len(reflux)) * ff[0].header['CDELT1'] + \
-            ff[0].header['CRVAL1']
+        refdisp = ff[0].header['CDELT1']
+        refwav = np.arange(0, len(reflux)) * refdisp + ff[0].header['CRVAL1']
         ff.close()
         # Convolve with appropriate Gaussian
-        reflux = gaussian_filter1d(reflux, self.frame.atres()/2.)
+        reflux = gaussian_filter1d(reflux, self.frame.atres()/2.354)
         # Preliminary wavelength solution
         obsarc = self.arcs[self.REFBAR]
         obswav = (np.arange(0, len(obsarc)) - int(len(obsarc)/2)) * \
             self.prelim_disp + self.frame.cwave()
-        #
+        # Get central third
+        minow = int(len(obsarc)/3)
+        maxow = int(2.*len(obsarc)/3)
+        # Unless we are low dispersion, then get central 3 5ths
+        if 'BL' in self.frame.grating() or 'RL' in self.frame.grating():
+            minow = int(len(obsarc)/5)
+            maxow = int(4.*len(obsarc)/5)
+        minwav = obswav[minow]
+        maxwav = obswav[maxow]
+        # Get corresponding ref range
+        minrw = [i for i, v in enumerate(refwav) if v >= minwav][0]
+        maxrw = [i for i, v in enumerate(refwav) if v <= maxwav][-1]
+        # Subsample for cross-correlation
+        cc_obsarc = obsarc[minow:maxow]
+        cc_obswav = obswav[minow:maxow]
+        cc_reflux = reflux[minrw:maxrw]
+        cc_refwav = refwav[minrw:maxrw]
+        # Resample onto reference wavelength scale
+        obsint = interpolate.interp1d(cc_obsarc, cc_obswav, kind='cubic')
+        cc_obsarc = obsint(cc_refwav)
+        # Apply cosign bell taper to both
+        cc_obsarc *= signal.windows.tukey(len(cc_obsarc),
+                                          alpha=self.frame.taperfrac())
+        cc_reflux *= signal.windows.tukey(len(cc_reflux),
+                                          alpha=self.frame.taperfrac())
+        nsamp = len(cc_refwav)
+        offar = np.arange(1 - nsamp, nsamp)
+        # Cross-correlate
+        xcorr = np.correlate(cc_obsarc, cc_reflux, mode='full')
+        # Get central region
+        x0c = int(len(xcorr)/3)
+        x1c = int(2*(len(xcorr)/3))
+        xcorr_central = xcorr[x0c:x1c]
+        offar_central = offar[x0c:x1c]
+        # Plot
         pl.ioff()
-        pl.plot(obswav, obsarc, '-')
-        pl.plot(refwav, reflux, 'r-')
-        pl.xlim(np.nanmin(obswav), np.nanmax(obswav))
+        pl.clf()
+        pl.plot(offar_central, xcorr_central)
         pl.show()
+        # Calculate offset
+        offset_pix = offar_central[xcorr_central.argmax()]
+        offset_wav = offset_pix * refdisp
+        self.log.info("Initial arc-atlas offset (px, Ang): %d, %.1f" %
+                      (offset_pix, offset_wav))
+        # Get central wavelength
+        cwave = self.frame.cwave()
+        # Plot the two spectra
+        pl.ioff()
+        pl.clf()
+        pl.plot(obswav[minow:maxow] - offset_wav,
+                obsarc[minow:maxow]/np.nanmax(obsarc[minow:maxow]), '-')
+        pl.plot(refwav[minrw:maxrw],
+                reflux[minrw:maxrw]/np.nanmax(reflux[minrw:maxrw]), 'r-')
+        pl.xlim(np.nanmin(obswav[minow:maxow]),
+                np.nanmax(obswav[minow:maxow]))
+        ylim = pl.gca().get_ylim()
+        pl.plot([cwave, cwave], ylim, 'g-.')
+        pl.show()
+        # Store offsets
+        self.offset_pix = offset_pix
+        self.offset_wave = offset_wav
 
     def solve_geom(self):
         self.log.info("solve_geom")

@@ -110,20 +110,37 @@ class KcwiCCD(CCDData):
 
     def atres(self):
         if 'BH' in self.grating():
-            return 2.5
+            atsig = 2.5
+            if self.ifunum() > 2:
+                atsig = 1.5
         elif 'RH' in self.grating():
-            return 2.5
+            atsig = 2.5
+            if self.ifunum() > 2:
+                atsig = 1.5
         elif 'BM' in self.grating():
-            return 4.0
+            atsig = 4.0
+            if self.ifunum() > 2:
+                atsig = 2.0
         elif 'RM' in self.grating():
-            return 4.0
+            atsig = 4.0
+            if self.ifunum() > 2:
+                atsig = 2.0
         elif 'BL' in self.grating():
-            return 14.0
+            atsig = 20.0
+            if self.ifunum() == 2:
+                atsig = 10.0
+            elif self.ifunum() == 3:
+                atsig = 7.0
         elif 'RL' in self.grating():
-            return 14.0
+            atsig = 14.0
+            if self.ifunum() == 2:
+                atsig = 10.
+            elif self.ifunum() == 3:
+                atsig = 7.0
         else:
             raise ValueError("unable to compute atlas resolution: "
                              "grating undefined")
+        return atsig
 
     def nasmask(self):
         if self.camera() == 0:      # Blue
@@ -159,6 +176,9 @@ class KcwiCCD(CCDData):
 
     def inter(self):
         return KcwiConf.INTER
+
+    def ifunum(self):
+        return self.header['IFUNUM']
 
     def imtype(self):
         return self.header['IMTYPE']
@@ -203,3 +223,6 @@ class KcwiCCD(CCDData):
         else:
             self.header['ILLUM'] = 'Test'
         return self.header['ILLUM']
+
+    def taperfrac(self):
+        return KcwiConf.TAPERFRAC
