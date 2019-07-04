@@ -16,8 +16,8 @@ class Conf(_config.ConfigNamespace):
         'Perform cosmic ray rejection'
     )
     INTER = _config.ConfigItem(
-        False,
-        'Interactive operation'
+        1,
+        'Interactive level'
     )
     SAVEINTIMS = _config.ConfigItem(
         False,

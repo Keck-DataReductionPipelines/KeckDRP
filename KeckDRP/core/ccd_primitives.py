@@ -36,22 +36,23 @@ class CcdPrimitives(PrimitivesBASE):
                     oscoef = np.polyfit(xx[:-50], osvec[:-50], porder)
                 # generate fitted overscan vector for full range
                 osfit = np.polyval(oscoef, xx)
-                # plot data and fit
-                pl.ion()
-                pl.plot(osvec)
-                legend = ["oscan", ]
-                pl.plot(osfit)
-                legend.append("fit")
-                pl.xlabel("pixel")
-                pl.ylabel("DN")
-                pl.legend(legend)
-                pl.title("Overscan img #%d amp #%d" % (
-                    self.frame.header['FRAMENO'], (ia+1)))
-                if self.frame.inter():
-                    input("Next? <cr>: ")
-                else:
-                    pl.pause(self.frame.plotpause())
-                pl.clf()
+                if self.frame.inter() >= 1:
+                    # plot data and fit
+                    pl.ion()
+                    pl.plot(osvec)
+                    legend = ["oscan", ]
+                    pl.plot(osfit)
+                    legend.append("fit")
+                    pl.xlabel("pixel")
+                    pl.ylabel("DN")
+                    pl.legend(legend)
+                    pl.title("Overscan img #%d amp #%d" % (
+                        self.frame.header['FRAMENO'], (ia+1)))
+                    if self.frame.inter() >= 2:
+                        input("Next? <cr>: ")
+                    else:
+                        pl.pause(self.frame.plotpause())
+                    pl.clf()
                 # subtract it
                 for ix in range(dsec[ia][2], dsec[ia][3]):
                     self.frame.data[y0:y1, ix] = \
