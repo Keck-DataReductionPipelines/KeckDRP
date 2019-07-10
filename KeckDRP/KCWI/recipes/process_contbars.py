@@ -7,6 +7,7 @@ def process_contbars(p, frame):
     if p.in_proctab():
         p.log.warning("Already processed")
         return
+    p.subtract_oscan()
     p.trim_oscan()
     p.correct_gain()
     p.remove_badcols()

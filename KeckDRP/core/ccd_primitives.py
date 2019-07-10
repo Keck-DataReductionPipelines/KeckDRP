@@ -54,7 +54,7 @@ class CcdPrimitives(PrimitivesBASE):
                         pl.pause(self.frame.plotpause())
                     pl.clf()
                 # subtract it
-                for ix in range(dsec[ia][2], dsec[ia][3]):
+                for ix in range(dsec[ia][2], dsec[ia][3]+1):
                     self.frame.data[y0:y1, ix] = \
                         self.frame.data[y0:y1, ix] - osfit
 

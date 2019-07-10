@@ -29,6 +29,66 @@ import pkg_resources
 ################
 
 
+def pascal_shift(coef=None, x0=None):
+    """Shift coefficients to a new reference value (X0)
+
+    This should probably go somewhere else, but will be needed here.
+    """
+    if not coef:
+        print("Error, no coefficients for pascal_shift.")
+        return None
+    if not x0:
+        print("Warning, no reference value (x0) supplied")
+        return coef
+    if len(coef) == 7:
+        usecoeff = list(reversed(coef))
+        fincoeff = [0.] * 7
+    else:
+        if len(coef) > 7:
+            print("Warning - this routine only handles up to 7 coefficients.")
+            usecoeff = list(reversed(coef[0:7]))
+            fincoeff = [0.] * len(coef)
+        else:
+            usecoeff = [0.] * 7
+            fincoeff = usecoeff
+            for ic, c in enumerate(coef):
+                usecoeff[len(coef)-(ic+1)] = coef[ic]
+    # get reference values
+    x01 = x0
+    x02 = x0**2
+    x03 = x0**3
+    x04 = x0**4
+    x05 = x0**5
+    x06 = x0**6
+    # use Pascal's Triangle to shift coefficients
+    fincoeff[0] = usecoeff[0] - usecoeff[1] * x01 + usecoeff[2] * x02 \
+        - usecoeff[3] * x03 + usecoeff[4] * x04 - usecoeff[5] * x05 \
+        + usecoeff[6] * x06
+
+    fincoeff[1] = usecoeff[1] - 2.0 * usecoeff[2] * x01 \
+        + 3.0 * usecoeff[3] * x02 - 4.0 * usecoeff[4] * x03 \
+        + 5.0 * usecoeff[5] * x04 - 6.0 * usecoeff[6] * x05
+
+    fincoeff[2] = usecoeff[2] - 3.0 * usecoeff[3] * x01 \
+        + 6.0 * usecoeff[4] * x02 - 10.0 * usecoeff[5] * x03 \
+        + 15.0 * usecoeff[6] * x04
+
+    fincoeff[3] = usecoeff[3] - 4.0 * usecoeff[4] * x01 \
+        + 10.0 * usecoeff[5] * x02 - 20.0 * usecoeff[6] * x03
+
+    fincoeff[4] = usecoeff[4] - 5.0 * usecoeff[5] * x01 \
+        + 15.0 * usecoeff[6] * x02
+
+    fincoeff[5] = usecoeff[5] - 6.0 * usecoeff[6] * x01
+
+    fincoeff[6] = usecoeff[6]
+    # Trim if needed
+    if len(coef) < 7:
+        fincoeff = fincoeff[0:len(coef)]
+    # Reverse for python
+    return list(reversed(fincoeff))
+
+
 class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                      ProctabPrimitives, DevelopmentPrimitives):
 
@@ -47,6 +107,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.baroffs = None         # pixel offsets relative to ref bar
         self.prelim_disp = None     # calculated dispersion
         self.xvals = None           # pixel values centered on the middle
+        self.x0 = None              # middle pixel
         self.reflux = None          # Atlas spectrum
         self.refwave = None         # Altas wavelengths
         self.refdisp = None         # Atlas dispersion
@@ -54,6 +115,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.maxrow = None          # Upper limit for central fit (px)
         self.offset_wave = None     # atlas-arc offset in Angstroms
         self.offset_pix = None      # atlas-arc offset in pixels
+        self.centcoeff = None       # Coeffs for central fit of each bar
         super(KcwiPrimitives, self).__init__()
 
     def write_image(self, suffix=None):
@@ -342,6 +404,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
 
     def find_bars(self):
         self.log.info("Finding continuum bars")
+        # Do we plot?
+        if KcwiConf.INTER >= 1:
+            do_plot = True
+            pl.ion()
+        else:
+            do_plot = False
         # initialize
         midcntr = []
         # get image dimensions
@@ -364,32 +432,42 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                            % (self.NBARS, len(midpeaks)))
         else:
             self.log.info("found %d bars" % len(midpeaks))
-            if KcwiConf.INTER >= 1:
+            if do_plot:
                 # plot the peak positions
-                pl.ion()
                 pl.plot(midvec, '-')
                 pl.plot(midpeaks, midvec[midpeaks], 'rx')
                 pl.plot([0, nx], [midavg, midavg], '--', color='grey')
+                pl.xlabel("CCD X (px)")
+                pl.ylabel("e-")
+                pl.title("Img %d, Thresh = %.2f" %
+                         (self.frame.header['FRAMENO'], midavg))
             # calculate the bar centroids
             for peak in midpeaks:
                 xs = list(range(peak-win, peak+win+1))
                 ys = midvec[xs] - np.nanmin(midvec[xs])
                 xc = np.sum(xs*ys) / np.sum(ys)
-                if KcwiConf.INTER >= 1:
+                midcntr.append(xc)
+                if do_plot:
                     pl.plot([xc, xc], [midavg, midvec[peak]], '-.',
                             color='grey')
-                midcntr.append(xc)
-            if KcwiConf.INTER >= 1:
+            if do_plot:
                 pl.plot(midcntr, midvec[midpeaks], 'gx')
-                # pl.show()
-                pl.pause(self.frame.plotpause())
-            self.log.info("Continuum bars centroided")
+                if KcwiConf.INTER >= 2:
+                    input("next: ")
+                else:
+                    pl.pause(self.frame.plotpause())
+            self.log.info("Found middle centroids for continuum bars")
         self.midcntr = midcntr
         self.midrow = midy
         self.win = win
 
     def trace_bars(self):
         self.log.info("Tracing continuum bars")
+        if KcwiConf.INTER >= 1:
+            do_plot = True
+            pl.ion()
+        else:
+            do_plot = False
         if len(self.midcntr) < 1:
             self.log.error("No bars found")
         else:
@@ -452,15 +530,20 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             yo = yi
             dst = np.column_stack((xi, yi))
             src = np.column_stack((xo, yo))
-            if KcwiConf.INTER >= 1:
+            if do_plot:
                 # plot them
                 pl.clf()
-                pl.ion()
                 # pl.ioff()
                 pl.plot(xi, yi, 'x', ms=0.5)
                 pl.plot(self.midcntr, [self.midrow]*120, 'x', color='red')
-                # pl.show()
-                pl.pause(self.frame.plotpause())
+                pl.xlabel("CCD X (px)")
+                pl.ylabel("CCD Y (px)")
+                pl.title("Img %d" % self.frame.header['FRAMENO'])
+                if KcwiConf.INTER >= 2:
+                    pl.show()
+                    input("next: ")
+                else:
+                    pl.pause(self.frame.plotpause())
             self.write_table(table=[src, dst, barid, slid],
                              names=('src', 'dst', 'barid', 'slid'),
                              suffix='trace',
@@ -515,15 +598,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     warped[:, (xi - win):(xi + win + 1)], axis=1)
                 arc = arc - np.nanmin(arc[100:-100])    # avoid ends
                 arcs.append(arc)
-                if KcwiConf.INTER >= 2:
-                    pl.clf()
-                    pl.ion()
-                    pl.plot(arc)
-                    pl.ylim(bottom=0.)
-                    pl.title("Slice: %d, Bar: %d, pos: %.3f" %
-                             (slid[xyi], barid[xyi], xy[0]))
-                    # pl.show()
-                    pl.pause(self.frame.plotpause())
         # Did we get the correct number of arcs?
         if len(arcs) == self.NBARS:
             self.log.info("Extracted %d arcs" % len(arcs))
@@ -533,7 +607,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                            (self.NBARS, len(arcs)))
 
     def arc_offsets(self):
+        self.log.info("Finding inter-bar offsets")
         if self.arcs is not None:
+            # Do we plot?
+            if KcwiConf.INTER >= 2:
+                do_plot = True
+                pl.ion()
+            else:
+                do_plot = False
             # Compare with reference arc
             refarc = self.arcs[self.REFBAR][:]
             # number of cross-correlation samples (avoiding ends)
@@ -548,17 +629,20 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 # Calculate offset
                 offset = offar[xcorr.argmax()]
                 offsets.append(offset)
-
+                self.log.info("Arc %d Slice %d XCorr shift = %d" %
+                              (na, int(na/5), offset))
                 # display if requested
-                if KcwiConf.INTER >= 2:
+                if do_plot:
                     pl.clf()
-                    pl.ion()
                     pl.plot(refarc, color='green')
                     pl.plot(np.roll(arc, offset), color='red')
                     pl.ylim(bottom=0.)
-                    pl.title("Arc %d XCorr, Shift = %d" % (na, offset))
-                    pl.pause(self.frame.plotpause())
-                self.log.info("Arc %d XCorr shift = %d" % (na, offset))
+                    pl.title("Arc %d Slice %d XCorr, Shift = %d" %
+                             (na, int(na/5), offset))
+                    pl.show()
+                    q = input("<cr> - Next, q to quit: ")
+                    if 'Q' in q.upper():
+                        do_plot = False
             self.baroffs = offsets
         else:
             self.log.error("No extracted arcs found")
@@ -640,9 +724,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # Calculate offset
         offset_pix = offar_central[xcorr_central.argmax()]
         offset_wav = offset_pix * refdisp
+        self.log.info("Initial arc-atlas offset (px, Ang): %d, %.1f" %
+                      (offset_pix, offset_wav))
         if KcwiConf.INTER >= 2:
             # Plot
-            pl.ioff()
+            pl.ion()
             pl.clf()
             pl.plot(offar_central, xcorr_central)
             ylim = pl.gca().get_ylim()
@@ -652,16 +738,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.title("Img # %d (%s), Offset = %d px" %
                      (self.frame.header['FRAMENO'], lamp, offset_pix))
             pl.show()
-        self.log.info("Initial arc-atlas offset (px, Ang): %d, %.1f" %
-                      (offset_pix, offset_wav))
-        if KcwiConf.INTER >= 2:
+            input("next: ")
             # Get central wavelength
             cwave = self.frame.cwave()
             # Set up offset tweaking
             q = 'test'
             while q:
                 # Plot the two spectra
-                pl.ion()
                 pl.clf()
                 pl.plot(obswav[minow:maxow] - offset_wav,
                         obsarc[minow:maxow]/np.nanmax(obsarc[minow:maxow]),
@@ -699,6 +782,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.maxrow = maxow
         # Store x values
         self.xvals = xvals
+        self.x0 = int(len(obsarc)/2)
 
     def fit_center(self):
         """ Fit central region
@@ -707,10 +791,18 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         offset from the reference bar to the atlas spectrum and the approximate
         dispersion.
         """
+        self.log.info("Finding wavelength solution for central region")
+        # Do we plot?
+        if KcwiConf.INTER >= 2:
+            do_plot = True
+            pl.ion()
+        else:
+            do_plot = False
         # y binning
         ybin = self.frame.ybinsize()
         # let's populate the 0 points vector
-        p0 = self.frame.cwave() + np.array(self.baroffs) * self.prelim_disp - self.offset_wave
+        p0 = self.frame.cwave() + np.array(self.baroffs) * self.prelim_disp \
+            - self.offset_wave
         # next we are going to brute-force scan around the preliminary
         # dispersion for a better solution. We will wander 5% away from it.
         max_ddisp = 0.05    # fraction
@@ -721,22 +813,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             nn = 10
         if nn > 25:
             nn = 25
-        delta = nn/10
-        if delta < 2:
-            delta = 2
         self.log.info("N disp. samples: %d" % nn)
         # dispersions to try
         disps = self.prelim_disp * (1.0 + max_ddisp *
                                     (np.arange(0, nn+1) - nn/2.) * 2.0 / nn)
-        # containers for output values
-        # maxima = []
-        # shifts = []
-        maxidx = []
-        dspstat = []
         # containers for bar-specific values
         bardisp = []
         barshift = []
-        barstat = []
+        centcoeff = []
         # wavelength coefficients
         coeff = [0., 0., 0., 0., 0.]
         # values for central fit
@@ -749,28 +833,31 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # get sub spectrum for this bar
             subspec = bs[self.minrow:self.maxrow]
             # now loop over dispersions
-            for disp in disps:
+            for di, disp in enumerate(disps):
                 # populate the coefficients
                 coeff[4] = p0[b]
                 coeff[3] = disp
-                cosbeta = disp / (self.PIX*ybin) * self.frame.rho() * self.FCAM * 1.e-4
+                cosbeta = disp / (self.PIX*ybin) * self.frame.rho() * \
+                    self.FCAM * 1.e-4
                 if cosbeta > 1.:
                     cosbeta = 1.
                 beta = math.acos(cosbeta)
-                coeff[2] = -(self.PIX * ybin / self.FCAM) ** 2 * math.sin(
-                    beta) / 2. / self.frame.rho() * 1.e4
-                coeff[1] = -(self.PIX * ybin / self.FCAM) ** 3 * math.cos(
-                    beta) / 6. / self.frame.rho() * 1.e4
-                coeff[0] = (self.PIX * ybin / self.FCAM) ** 4 * math.sin(
-                    beta) / 24. / self.frame.rho() * 1.e4
+                coeff[2] = -(self.PIX * ybin / self.FCAM) ** 2 * \
+                    math.sin(beta) / 2. / self.frame.rho() * 1.e4
+                coeff[1] = -(self.PIX * ybin / self.FCAM) ** 3 * \
+                    math.cos(beta) / 6. / self.frame.rho() * 1.e4
+                coeff[0] = (self.PIX * ybin / self.FCAM) ** 4 * \
+                    math.sin(beta) / 24. / self.frame.rho() * 1.e4
                 # what are the min and max wavelengths to consider?
                 wl0 = np.polyval(coeff, self.xvals[self.minrow])
                 wl1 = np.polyval(coeff, self.xvals[self.maxrow])
                 minwvl = np.nanmin([wl0, wl1])
                 maxwvl = np.nanmax([wl0, wl1])
                 # where will we need to interpolate to cross-correlate?
-                minrw = [i for i, v in enumerate(self.refwave) if v >= minwvl][0]
-                maxrw = [i for i, v in enumerate(self.refwave) if v <= maxwvl][-1]
+                minrw = [i for i, v in enumerate(self.refwave)
+                         if v >= minwvl][0]
+                maxrw = [i for i, v in enumerate(self.refwave)
+                         if v <= maxwvl][-1]
                 subrefwvl = self.refwave[minrw:maxrw]
                 subrefspec = self.reflux[minrw:maxrw]
                 # get bell cosine taper to avoid nasty edge effects
@@ -781,7 +868,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 # adjust wavelengths
                 waves = np.polyval(coeff, subxvals)
                 # interpolate the bar spectrum
-                obsint = interpolate.interp1d(subspec, waves, kind='cubic')
+                obsint = interpolate.interp1d(waves, subspec, kind='cubic',
+                                              bounds_error=False,
+                                              fill_value='extrapolate')
                 intspec = obsint(subrefwvl)
                 # apply taper to bar spectrum
                 intspec *= tkwgt
@@ -796,22 +885,59 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 x1c = int(2 * (len(xcorr) / 3))
                 xcorr_central = xcorr[x0c:x1c]
                 offar_central = offar[x0c:x1c]
-                pl.clf()
-                pl.ioff()
-                pl.plot(offar, xcorr)
-                pl.show()
                 # Calculate offset
                 maxima.append(xcorr_central[xcorr_central.argmax()])
                 shifts.append(offar_central[xcorr_central.argmax()])
-            # plot maxima
-            pl.ioff()
-            pl.clf()
-            pl.plot(disps, maxima, 'r.')
-            pl.xlabel("Central Dispersion (Ang/px)")
-            pl.ylabel("X-Corr Peak Value")
-            pl.title("Bar %d" % b)
-            # pl.pause(self.frame.plotpause())
-            pl.show()
+            # Get interpolations
+            int_max = interpolate.interp1d(disps, maxima, kind='cubic',
+                                           bounds_error=False,
+                                           fill_value='extrapolate')
+            int_shift = interpolate.interp1d(disps, shifts, kind='cubic',
+                                             bounds_error=False,
+                                             fill_value='extrapolate')
+            xdisps = np.linspace(min(disps), max(disps), num=nn*20)
+            # get peak values
+            maxima_res = int_max(xdisps)
+            shifts_res = int_shift(xdisps) * self.refdisp
+            bardisp.append(xdisps[maxima_res.argmax()])
+            barshift.append(shifts_res[maxima_res.argmax()])
+            # update coeffs
+            coeff[4] = p0[b] - barshift[-1]
+            coeff[3] = bardisp[-1]
+            cosbeta = coeff[3] / (self.PIX * ybin) * self.frame.rho() * \
+                self.FCAM * 1.e-4
+            if cosbeta > 1.:
+                cosbeta = 1.
+            beta = math.acos(cosbeta)
+            coeff[2] = -(self.PIX * ybin / self.FCAM) ** 2 * \
+                math.sin(beta) / 2. / self.frame.rho() * 1.e4
+            coeff[1] = -(self.PIX * ybin / self.FCAM) ** 3 * \
+                math.cos(beta) / 6. / self.frame.rho() * 1.e4
+            coeff[0] = (self.PIX * ybin / self.FCAM) ** 4 * \
+                math.sin(beta) / 24. / self.frame.rho() * 1.e4
+            scoeff = pascal_shift(coeff, self.x0)
+            self.log.info("Central Fit: Bar#, Cdisp, Coefs: "
+                          "%d  %.4f  %.2f  %.4f  %13.5e %13.5e" %
+                          (b, bardisp[-1], scoeff[4], scoeff[3], scoeff[2],
+                           scoeff[1]))
+            if do_plot:
+                # plot maxima
+                pl.clf()
+                pl.plot(disps, maxima, 'r.')
+                pl.plot(xdisps, int_max(xdisps), '-')
+                ylim = pl.gca().get_ylim()
+                pl.plot([bardisp[-1], bardisp[-1]], ylim, 'g-.')
+                pl.xlabel("Central Dispersion (Ang/px)")
+                pl.ylabel("X-Corr Peak Value")
+                pl.title("Bar %d, Slice %d" % (b, int(b/5)))
+                pl.show()
+                q = input("<cr> - Next, q to quit: ")
+                if 'Q' in q.upper():
+                    do_plot = False
+            # Store results
+            centcoeff.append(coeff)
+        # Store results
+        self.centcoeff = centcoeff
 
     def solve_geom(self):
         self.log.info("solve_geom")
