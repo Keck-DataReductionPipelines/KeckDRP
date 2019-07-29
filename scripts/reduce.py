@@ -9,6 +9,7 @@ import sys
 from KeckDRP import conf
 from KeckDRP import Instruments
 from astropy import log
+import numpy as np
 
 
 #os.system('rm -r redux')
@@ -52,6 +53,8 @@ def go(image, rcp, imtype=None):
     # load the frame and instantiate the object
     if os.path.isfile(image):
         frame = KeckDRP.KcwiCCD.read(image, unit='adu')
+        # prepare for floating point operations
+        frame.data = frame.data.astype(np.float64)
         # handle missing CCDCFG
         if 'CCDCFG' not in frame.header:
             ccdcfg = frame.header['CCDSUM'].replace(" ", "")

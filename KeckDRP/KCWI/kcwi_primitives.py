@@ -492,7 +492,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 slid.append(int(barn/5))
                 # trace up
                 samy = self.midrow + samp
-                while samy < (self.frame.data.shape[0] - win):
+                done = False
+                while samy < (self.frame.data.shape[0] - win) and not done:
                     ys = np.median(
                         self.frame.data[(samy - win):(samy + win + 1),
                                         (barxi - win):(barxi + win + 1)],
@@ -506,10 +507,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         yi.append(samy)
                         barid.append(barn)
                         slid.append(int(barn/5))
+                    else:
+                        done = True
                     samy += samp
                 # trace down
                 samy = self.midrow - samp
-                while samy >= win:
+                done = False
+                while samy >= win and not done:
                     ys = np.median(
                         self.frame.data[(samy - win):(samy + win + 1),
                                         (barxi - win):(barxi + win + 1)],
@@ -523,6 +527,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         yi.append(samy)
                         barid.append(barn)
                         slid.append(int(barn / 5))
+                    else:
+                        done = True
                     # disable for now
                     samy -= samp
             # end loop over bars
@@ -681,7 +687,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         refwav = np.arange(0, len(reflux)) * refdisp + ff[0].header['CRVAL1']
         ff.close()
         # Convolve with appropriate Gaussian
-        reflux = gaussian_filter1d(reflux, self.frame.atres()/2.354)
+        reflux = gaussian_filter1d(reflux, self.frame.atres())
         # Observed arc spectrum
         obsarc = self.arcs[self.REFBAR]
         # Preliminary wavelength solution
@@ -705,7 +711,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         cc_reflux = reflux[minrw:maxrw]
         cc_refwav = refwav[minrw:maxrw]
         # Resample onto reference wavelength scale
-        obsint = interpolate.interp1d(cc_obsarc, cc_obswav, kind='cubic')
+        obsint = interpolate.interp1d(cc_obswav, cc_obsarc, kind='cubic',
+                                      bounds_error=False,
+                                      fill_value='extrapolate'
+                                      )
         cc_obsarc = obsint(cc_refwav)
         # Apply cosign bell taper to both
         cc_obsarc *= signal.windows.tukey(len(cc_obsarc),
