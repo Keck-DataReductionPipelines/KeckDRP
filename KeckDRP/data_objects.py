@@ -43,6 +43,16 @@ class KcwiCCD(CCDData):
                              "CAMERA undefined")
         return self.header[key]
 
+    def filter(self):
+        if self.camera() == 0:      # Blue
+            filt = self.header['BFILTNAM']
+        elif self.camera() == 1:    # Red
+            filt = 'None'
+        else:
+            raise ValueError("unable to determine filter: "
+                             "CAMERA undefined")
+        return filt
+
     def grangle(self):
         if self.camera() == 0:      # Blue
             key = 'BGRANGLE'
@@ -176,6 +186,9 @@ class KcwiCCD(CCDData):
 
     def inter(self):
         return KcwiConf.INTER
+
+    def ifuname(self):
+        return self.header['IFUNAM']
 
     def ifunum(self):
         return self.header['IFUNUM']

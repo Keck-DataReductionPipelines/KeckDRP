@@ -807,6 +807,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.ion()
         else:
             do_plot = False
+        # image label
+        imlab = "Img # %d (%s) Sl: %s Fl: %s Gr: %s" % \
+                (self.frame.header['FRAMENO'], self.frame.illum(),
+                 self.frame.ifuname(), self.frame.filter(),
+                 self.frame.grating())
         # y binning
         ybin = self.frame.ybinsize()
         # let's populate the 0 points vector
@@ -830,6 +835,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         bardisp = []
         barshift = []
         centcoeff = []
+        centwave = []
+        centdisp = []
         # wavelength coefficients
         coeff = [0., 0., 0., 0., 0.]
         # values for central fit
@@ -926,9 +933,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 math.sin(beta) / 24. / self.frame.rho() * 1.e4
             scoeff = pascal_shift(coeff, self.x0)
             self.log.info("Central Fit: Bar#, Cdisp, Coefs: "
-                          "%d  %.4f  %.2f  %.4f  %13.5e %13.5e" %
+                          "%3d  %.4f  %.2f  %.4f  %13.5e %13.5e" %
                           (b, bardisp[-1], scoeff[4], scoeff[3], scoeff[2],
                            scoeff[1]))
+            # store central values
+            centwave.append(coeff[4])
+            centdisp.append(coeff[3])
             if do_plot:
                 # plot maxima
                 pl.clf()
@@ -945,6 +955,39 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     do_plot = False
             # Store results
             centcoeff.append(coeff)
+        if self.frame.inter() >= 1:
+            # Plot results
+            pl.ion()
+            pl.clf()
+            pl.plot(centwave, 'h')
+            ylim = pl.gca().get_ylim()
+            for ix in range(1, 24):
+                sx = ix*5 - 0.5
+                pl.plot([sx, sx], ylim, '-.', color='black')
+            pl.xlim([-1, 120])
+            pl.gca().margins(0)
+            pl.xlabel("Bar #")
+            pl.ylabel("Central Wavelength (A)")
+            pl.title(imlab)
+            if self.frame.inter() >= 2:
+                input("Next? <cr>: ")
+            else:
+                pl.pause(self.frame.plotpause())
+            pl.clf()
+            pl.plot(centdisp, 'h')
+            ylim = pl.gca().get_ylim()
+            for ix in range(1, 24):
+                sx = ix * 5 - 0.5
+                pl.plot([sx, sx], ylim, '-.', color='black')
+            pl.xlim([-1, 120])
+            pl.gca().margins(0)
+            pl.xlabel("Bar #")
+            pl.ylabel("Central Dispersion (A/px)")
+            pl.title(imlab)
+            if self.frame.inter() >= 2:
+                input("Next? <cr>: ")
+            else:
+                pl.pause(self.frame.plotpause())
         # Store results
         self.centcoeff = centcoeff
 
