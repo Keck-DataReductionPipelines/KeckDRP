@@ -22,9 +22,10 @@ import math
 
 import pkg_resources
 
+import KeckDRP
+
 ################
 # ccdproc usage
-# import KeckDRP
 # import ccdproc
 ################
 
@@ -286,6 +287,60 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         else:
             self.log.info("fit_flat")
 
+    def bias_readnoise(self, tab=None, in_directory=None):
+        if tab is not None:
+            file_list = tab['OFNAME']
+            image_numbers = tab['FRAMENO']
+
+            if in_directory is None:
+                prefix = '.'
+            else:
+                prefix = in_directory
+            suffix = '.fits'
+            # get second and third image in stack
+            infil1 = os.path.join(prefix, file_list[1].split('.')[0] + suffix)
+            bias1 = KeckDRP.KcwiCCD.read(infil1, unit='adu')
+            bias1.data = bias1.data.astype(np.float64)
+            infil2 = os.path.join(prefix, file_list[2].split('.')[0] + suffix)
+            bias2 = KeckDRP.KcwiCCD.read(infil2, unit='adu')
+            bias2.data = bias2.data.astype(np.float64)
+            namps = bias1.header['NVIDINP']
+            for ia in range(namps):
+                # get gain
+                gain = bias1.header['GAIN%d' % (ia + 1)]
+                # get amp section
+                sec, rfor = self.parse_imsec(
+                    section_key='DSEC%d' % (ia + 1))
+                diff = bias1.data[sec[0]:(sec[1]+1), sec[2]:(sec[3]+1)] - \
+                    bias2.data[sec[0]:(sec[1]+1), sec[2]:(sec[3]+1)]
+                diff = np.reshape(diff, diff.shape[0]*diff.shape[1]) * \
+                    gain / 1.414
+
+                c, upp, low = sp.stats.sigmaclip(diff, low=3.5, high=3.5)
+                bias_rn = c.std()
+                self.log.info("Amp%d Read noise from bias in e-: %.3f" %
+                              ((ia + 1), bias_rn))
+                self.frame.header['BIASRN%d' % (ia + 1)] = \
+                    (float("%.3f" % bias_rn), "RN in e- from bias")
+                if self.frame.inter() >= 1:
+                    if self.frame.inter() >= 2:
+                        pl.ion()
+                    else:
+                        pl.ioff()
+                    pl.clf()
+                    pl.hist(c, bins=50, range=(-12, 12))
+                    ylim = pl.gca().get_ylim()
+                    pl.plot([c.mean(), c.mean()], ylim, 'g-.')
+                    pl.plot([c.mean()-c.std(), c.mean()-c.std()], ylim, 'r-.')
+                    pl.plot([c.mean()+c.std(), c.mean()+c.std()], ylim, 'r-.')
+                    pl.xlabel("Bias1 - Bias2 (e-/sqrt(2)")
+                    pl.ylabel("Density")
+                    pl.gca().margins(0)
+                    if self.frame.inter() >= 2:
+                        input("Next? <cr>: ")
+                    else:
+                        pl.pause(self.frame.plotpause())
+
     def stack_biases(self):
 
         # get current group id
@@ -299,6 +354,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # create master bias
         if len(combine_list) >= KcwiConf.MINIMUM_NUMBER_OF_BIASES:
             self.image_combine(combine_list, keylog='BIASLIST')
+            self.bias_readnoise(combine_list)
             # output file and update proc table
             self.update_proctab(suffix='master_bias', newtype='MBIAS')
             self.write_image(suffix='master_bias')
@@ -743,9 +799,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         offset_wav = offset_pix * refdisp
         self.log.info("Initial arc-atlas offset (px, Ang): %d, %.1f" %
                       (offset_pix, offset_wav))
-        if KcwiConf.INTER >= 2:
+        if self.frame.inter() >= 1:
+            if self.frame.inter() >= 2:
+                pl.ion()
+            else:
+                pl.ioff()
             # Plot
-            pl.ion()
             pl.clf()
             pl.plot(offar_central, xcorr_central)
             ylim = pl.gca().get_ylim()
@@ -754,8 +813,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.ylabel("X-corr")
             pl.title("Img # %d (%s), Offset = %d px" %
                      (self.frame.header['FRAMENO'], lamp, offset_pix))
-            pl.show()
-            input("next: ")
+            if self.frame.inter() >= 2:
+                input("Next? <cr>: ")
+            else:
+                pl.pause(self.frame.plotpause())
             # Get central wavelength
             cwave = self.frame.cwave()
             # Set up offset tweaking
@@ -779,11 +840,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                          (self.frame.header['FRAMENO'], lamp,
                           offset_wav, offset_pix))
                 pl.legend()
-                pl.show()
-                q = input("Enter: <cr> - next, new offset (px): ")
-                if q:
-                    offset_pix = int(q)
-                    offset_wav = offset_pix * refdisp
+                if self.frame.inter() >= 2:
+                    q = input("Enter: <cr> - next, new offset (px): ")
+                    if q:
+                        offset_pix = int(q)
+                        offset_wav = offset_pix * refdisp
+                else:
+                    pl.pause(self.frame.plotpause())
+                    q = None
             self.log.info("Final   arc-atlas offset (px, Ang): %d, %.1f" %
                           (offset_pix, offset_wav))
         # Store atlas spectrum
@@ -919,7 +983,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             int_shift = interpolate.interp1d(disps, shifts, kind='cubic',
                                              bounds_error=False,
                                              fill_value='extrapolate')
-            xdisps = np.linspace(min(disps), max(disps), num=nn*20)
+            xdisps = np.linspace(min(disps), max(disps), num=nn*100)
             # get peak values
             maxima_res = int_max(xdisps)
             shifts_res = int_shift(xdisps) * self.refdisp

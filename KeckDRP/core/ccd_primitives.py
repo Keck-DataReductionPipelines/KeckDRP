@@ -1,6 +1,7 @@
 from KeckDRP import PrimitivesBASE
 import numpy as np
 import pylab as pl
+import math
 
 
 class CcdPrimitives(PrimitivesBASE):
@@ -20,6 +21,8 @@ class CcdPrimitives(PrimitivesBASE):
         performed = False
         # loop over amps
         for ia in range(namps):
+            # get gain
+            gain = self.frame.header['GAIN%d' % (ia + 1)]
             # check if we have enough data to fit
             if (bsec[ia][3] - bsec[ia][2]) > self.frame.minoscanpix():
                 # pull out an overscan vector
@@ -28,6 +31,7 @@ class CcdPrimitives(PrimitivesBASE):
                 y0 = bsec[ia][0]
                 y1 = bsec[ia][1] + 1
                 osvec = np.nanmedian(self.frame.data[y0:y1, x0:x1], axis=1)
+                nsam = x1 - x0
                 xx = np.arange(len(osvec), dtype=np.float)
                 # fit it, avoiding first 50 px
                 if direc[ia]:
@@ -39,8 +43,10 @@ class CcdPrimitives(PrimitivesBASE):
                 # generate fitted overscan vector for full range
                 osfit = np.polyval(oscoef, xx)
                 # calculate residuals
-                resid = osvec - osfit
+                resid = (osvec - osfit) * math.sqrt(nsam) * gain / 1.414
                 sdrs = float("%.3f" % np.std(resid))
+                self.log.info("Amp%d Read noise from oscan in e-: %.3f" %
+                              ((ia + 1), sdrs))
                 self.frame.header['OSCNRN%d' % (ia + 1)] = \
                     (sdrs, "amp%d RN in e- from oscan" % (ia + 1))
                 if self.frame.inter() >= 1:
