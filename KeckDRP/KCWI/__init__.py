@@ -24,7 +24,7 @@ class Conf(_config.ConfigNamespace):
         'Save intermediate images'
     )
     PLOTPAUSE = _config.ConfigItem(
-        0.5,
+        1,
         'Pause length between plots in seconds'
     )
     MINOSCANPIX = _config.ConfigItem(
