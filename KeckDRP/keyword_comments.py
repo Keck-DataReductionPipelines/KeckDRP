@@ -14,5 +14,7 @@ keyword_comments = {
     "FLATLIST": "flat img #s combined",
     "MFFILE": "master flat file",
     "DOMELIST": "dome img #s combined",
-    "MDOMEFIL": "master dome file"
+    "MDOMEFIL": "master dome file",
+    "GAINCOR": "gain corrected?",
+    "BUNIT": "brightness units"
 }

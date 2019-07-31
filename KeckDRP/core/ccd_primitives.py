@@ -16,6 +16,8 @@ class CcdPrimitives(PrimitivesBASE):
             porder = 7
         # header keyword to update
         key = 'OSCANSUB'
+        # is it performed?
+        performed = False
         # loop over amps
         for ia in range(namps):
             # check if we have enough data to fit
@@ -36,6 +38,11 @@ class CcdPrimitives(PrimitivesBASE):
                     oscoef = np.polyfit(xx[:-50], osvec[:-50], porder)
                 # generate fitted overscan vector for full range
                 osfit = np.polyval(oscoef, xx)
+                # calculate residuals
+                resid = osvec - osfit
+                sdrs = float("%.3f" % np.std(resid))
+                self.frame.header['OSCNRN%d' % (ia + 1)] = \
+                    (sdrs, "amp%d RN in e- from oscan" % (ia + 1))
                 if self.frame.inter() >= 1:
                     # plot data and fit
                     pl.ion()
@@ -57,12 +64,14 @@ class CcdPrimitives(PrimitivesBASE):
                 for ix in range(dsec[ia][2], dsec[ia][3]+1):
                     self.frame.data[y0:y1, ix] = \
                         self.frame.data[y0:y1, ix] - osfit
-
-                self.frame.header[key] = (True, self.keyword_comments[key])
+                performed = True
             else:
                 self.log.info("not enough overscan px to fit amp %d")
-                self.frame.header[key] = (False, self.keyword_comments[key])
 
+        if performed:
+            self.frame.header[key] = (True, self.keyword_comments[key])
+        else:
+            self.frame.header[key] = (False, self.keyword_comments[key])
         logstr = self.subtract_oscan.__module__ + "." + \
                  self.subtract_oscan.__qualname__
         self.frame.header['HISTORY'] = logstr
@@ -98,8 +107,9 @@ class CcdPrimitives(PrimitivesBASE):
             sec += "%d," % xo1
             sec += "%d:" % (yo0+1)
             sec += "%d]" % yo1
-            self.frame.header['ASEC%d' % (ia+1)] = sec
+            self.frame.header['ATSEC%d' % (ia+1)] = sec
             # remove obsolete sections
+            self.frame.header.pop('ASEC%d' % (ia + 1))
             self.frame.header.pop('BSEC%d' % (ia + 1))
             self.frame.header.pop('DSEC%d' % (ia + 1))
             self.frame.header.pop('CSEC%d' % (ia + 1))
@@ -115,7 +125,25 @@ class CcdPrimitives(PrimitivesBASE):
         self.log.info(self.trim_oscan.__qualname__)
 
     def correct_gain(self):
-        self.log.info("correct_gain")
+        namps = self.frame.header['NVIDINP']
+        for ia in range(namps):
+            # get amp section
+            sec, rfor = self.parse_imsec(
+                section_key='ATSEC%d' % (ia + 1))
+            # get gain for this amp
+            gain = self.frame.header['GAIN%d' % (ia + 1)]
+            self.log.info("Applying gain correction of %.3f in section %s" %
+                          (gain, self.frame.header['ATSEC%d' % (ia + 1)]))
+            self.frame.data[sec[0]:(sec[1]+1), sec[2]:(sec[3]+1)] *= gain
+
+        self.frame.header['GAINCOR'] = (True, self.keyword_comments['GAINCOR'])
+        self.frame.header['BUNIT'] = ('electron',
+                                      self.keyword_comments['BUNIT'])
+
+        logstr = self.correct_gain.__module__ + "." + \
+                 self.correct_gain.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(self.correct_gain.__qualname__)
 
     def remove_crs(self):
         self.log.info("remove_crs")

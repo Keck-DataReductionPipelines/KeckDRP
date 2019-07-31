@@ -121,6 +121,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
     def write_image(self, suffix=None):
         if suffix is not None:
             origfn = self.frame.header['OFNAME']
+            if 'BUNIT' in self.frame.header:
+                self.frame.unit = self.frame.header['BUNIT']
             outfn = os.path.join(conf.REDUXDIR,
                                  origfn.split('.')[0]+'_'+suffix+'.fits')
             if not conf.OVERWRITE and os.path.exists(outfn):
@@ -207,6 +209,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.frame.header['HISTORY'] = logstr
             self.log.info(self.subtract_bias.__qualname__)
         else:
+            self.frame.header['BIASSUB'] = (False,
+                                            self.keyword_comments['BIASSUB'])
             self.log.warn('No Master Bias frame found. NO BIAS SUBTRACTION')
 
     def subtract_dark(self):
@@ -222,6 +226,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.frame.header['HISTORY'] = logstr
             self.log.info(self.subtract_dark.__qualname__)
         else:
+            self.frame.header['DARKSUB'] = (False,
+                                            self.keyword_comments['DARKSUB'])
             self.log.warn('No Master Dark frame found. NO DARK SUBTRACTION')
 
     def fit_flat(self):
@@ -501,7 +507,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     ys = ys - np.nanmin(ys)
                     xs = list(range(barxi - win, barxi + win + 1))
                     xc = np.sum(xs * ys) / np.sum(ys)
-                    if np.nanmax(ys) > 1500:
+                    if np.nanmax(ys) > 255:
                         xi.append(xc)
                         xo.append(barx)
                         yi.append(samy)
@@ -521,7 +527,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     ys = ys - np.nanmin(ys)
                     xs = list(range(barxi - win, barxi + win + 1))
                     xc = np.sum(xs * ys) / np.sum(ys)
-                    if np.nanmax(ys) > 1500:
+                    if np.nanmax(ys) > 255:
                         xi.append(xc)
                         xo.append(barx)
                         yi.append(samy)
@@ -643,6 +649,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     pl.plot(refarc, color='green')
                     pl.plot(np.roll(arc, offset), color='red')
                     pl.ylim(bottom=0.)
+                    pl.xlabel("CCD y (px)")
+                    pl.ylabel("e-")
                     pl.title("Arc %d Slice %d XCorr, Shift = %d" %
                              (na, int(na/5), offset))
                     pl.show()
@@ -801,12 +809,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         dispersion.
         """
         self.log.info("Finding wavelength solution for central region")
-        # Do we plot?
+        # Are we interactive?
         if KcwiConf.INTER >= 2:
-            do_plot = True
+            do_inter = True
             pl.ion()
         else:
-            do_plot = False
+            do_inter = False
         # image label
         imlab = "Img # %d (%s) Sl: %s Fl: %s Gr: %s" % \
                 (self.frame.header['FRAMENO'], self.frame.illum(),
@@ -939,7 +947,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # store central values
             centwave.append(coeff[4])
             centdisp.append(coeff[3])
-            if do_plot:
+            if self.frame.inter() >= 1:
                 # plot maxima
                 pl.clf()
                 pl.plot(disps, maxima, 'r.')
@@ -949,15 +957,21 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 pl.xlabel("Central Dispersion (Ang/px)")
                 pl.ylabel("X-Corr Peak Value")
                 pl.title("Bar %d, Slice %d" % (b, int(b/5)))
-                pl.show()
-                q = input("<cr> - Next, q to quit: ")
-                if 'Q' in q.upper():
-                    do_plot = False
+                if do_inter:
+                    q = input("<cr> - Next, q to quit: ")
+                    if 'Q' in q.upper():
+                        do_inter = False
+                        pl.ioff()
+                else:
+                    pl.pause(0.01)
             # Store results
             centcoeff.append(coeff)
         if self.frame.inter() >= 1:
+            if self.frame.inter() >= 2:
+                pl.ion()
+            else:
+                pl.ioff()
             # Plot results
-            pl.ion()
             pl.clf()
             pl.plot(centwave, 'h')
             ylim = pl.gca().get_ylim()
