@@ -16,9 +16,11 @@ from scipy.interpolate import interpolate
 from skimage import transform as tf
 from astropy.table import Table
 import astropy.io.fits as pf
-import pylab as pl
+import matplotlib.pyplot as pl
 import time
 import math
+
+from astropy.nddata import VarianceUncertainty
 
 import pkg_resources
 
@@ -117,7 +119,15 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.offset_wave = None     # atlas-arc offset in Angstroms
         self.offset_pix = None      # atlas-arc offset in pixels
         self.centcoeff = None       # Coeffs for central fit of each bar
+        self.readnoise = None       # readnoise (e-)
         super(KcwiPrimitives, self).__init__()
+
+    @staticmethod
+    def kcwi_plot_setup():
+        if KcwiConf.INTER >= 1:
+            pl.ion()
+            fig = pl.figure(num=0, figsize=(17, 6))
+            fig.canvas.set_window_title('KCWI DRP')
 
     def write_image(self, suffix=None):
         if suffix is not None:
@@ -189,18 +199,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         tab = self.n_proctab(target_type='MBIAS', nearest=True)
         self.log.info("%d master bias frames found" % len(tab))
         if len(tab) > 0:
-            ####################################
-            # ccdproc usage
-            # suff = '_master_bias.fits'
-            # pref = 'redux'
-            # flist = tab['OFNAME']
-            # for f in flist:
-            #    infile = os.path.join(pref, f.split('.')[0] + suff)
-            #    self.log.info("reading image to subtract: %s" % infile)
-            #    master = KeckDRP.KcwiCCD.read(infile, unit='adu')
-            # bsub = ccdproc.subtract_bias(self.frame, master)
-            # self.set_frame(bsub)
-            #####################################
             self.img_subtract(tab, suffix='master_bias', indir='redux',
                               keylog='MBFILE')
             self.frame.header['BIASSUB'] = (True,
@@ -213,6 +211,28 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.frame.header['BIASSUB'] = (False,
                                             self.keyword_comments['BIASSUB'])
             self.log.warn('No Master Bias frame found. NO BIAS SUBTRACTION')
+
+    def create_unc(self):
+        """Assumes units of image are electron"""
+        # start with Poisson noise
+        self.frame.uncertainty = VarianceUncertainty(
+            self.frame.data, unit='electron^2', copy=True)
+        # add readnoise, if known
+        if self.readnoise:
+            for ia in range(self.frame.namps()):
+                sec, rfor = self.parse_imsec(
+                    section_key='ATSEC%d' % (ia + 1))
+                self.frame.uncertainty.array[
+                 sec[0]:(sec[1]+1), sec[2]:(sec[3]+1)] += self.readnoise[ia]
+                self.frame.header['BIASRN%d' % (ia + 1)] = self.readnoise[ia]
+        else:
+            self.log.warn("Readnoise undefined, uncertainty is Poisson only")
+        # document variance image creation
+        self.frame.header['UNCVAR'] = (True, "has variance image been created?")
+        logstr = self.create_unc.__module__ + "." + \
+                 self.create_unc.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(self.create_unc.__qualname__)
 
     def subtract_dark(self):
         tab = self.n_proctab(target_type='MDARK', nearest=True)
@@ -737,6 +757,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
     def read_atlas(self):
         # What lamp are we using?
         lamp = self.frame.illum()
+        # rez factor
+        if 'fear' in lamp.lower():
+            rezfact = 0.5
+        else:
+            rezfact = 1.0
         atpath = os.path.join(pkg_resources.resource_filename(
             'KeckDRP.KCWI', 'data/'), "%s.fits" % lamp.lower())
         # Does the atlas file exist?
@@ -751,7 +776,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         refwav = np.arange(0, len(reflux)) * refdisp + ff[0].header['CRVAL1']
         ff.close()
         # Convolve with appropriate Gaussian
-        reflux = gaussian_filter1d(reflux, self.frame.atres())
+        reflux = gaussian_filter1d(reflux, self.frame.atres()*rezfact)
         # Observed arc spectrum
         obsarc = self.arcs[self.REFBAR]
         # Preliminary wavelength solution

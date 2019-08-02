@@ -1,6 +1,6 @@
 from KeckDRP import PrimitivesBASE
 import numpy as np
-import pylab as pl
+import matplotlib.pyplot as pl
 import math
 
 
@@ -52,6 +52,8 @@ class CcdPrimitives(PrimitivesBASE):
                 if self.frame.inter() >= 1:
                     # plot data and fit
                     pl.ion()
+                    # fig = pl.figure(num=0, figsize=(17.0, 6.0))
+                    # fig.canvas.set_window_title('KCWI DRP')
                     pl.plot(osvec)
                     legend = ["oscan", ]
                     pl.plot(osfit)
@@ -131,7 +133,7 @@ class CcdPrimitives(PrimitivesBASE):
         self.log.info(self.trim_oscan.__qualname__)
 
     def correct_gain(self):
-        namps = self.frame.header['NVIDINP']
+        namps = self.frame.namps()
         for ia in range(namps):
             # get amp section
             sec, rfor = self.parse_imsec(
@@ -145,6 +147,7 @@ class CcdPrimitives(PrimitivesBASE):
         self.frame.header['GAINCOR'] = (True, self.keyword_comments['GAINCOR'])
         self.frame.header['BUNIT'] = ('electron',
                                       self.keyword_comments['BUNIT'])
+        self.frame.unit = 'electron'
 
         logstr = self.correct_gain.__module__ + "." + \
                  self.correct_gain.__qualname__
@@ -238,7 +241,7 @@ class CcdPrimitives(PrimitivesBASE):
             list: (bool) y-direction, x-direction, True if forward, else False
         """
 
-        namps = self.frame.header['NVIDINP']
+        namps = self.frame.namps()
         # TODO: check namps
         # section lists
         bsec = []

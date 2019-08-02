@@ -2,15 +2,6 @@ from astropy.nddata import CCDData, NDData
 from .KCWI import KcwiConf
 
 
-class KcwiBarSpec(NDData):
-    """
-    The KCWI class for extracted bar spectra
-    """
-    def __init__(self, wave, flux):
-        self.wave = wave
-        self.flux = flux
-
-
 class KcwiCCD(CCDData):
     """
     the KCWICCD class subclasses the CCDData class, which is subclass of NDData
@@ -151,6 +142,9 @@ class KcwiCCD(CCDData):
             raise ValueError("unable to compute atlas resolution: "
                              "grating undefined")
         return atsig
+
+    def namps(self):
+        return self.header['NVIDINP']
 
     def nasmask(self):
         if self.camera() == 0:      # Blue

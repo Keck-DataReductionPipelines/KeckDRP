@@ -7,6 +7,10 @@ import ccdproc
 
 class ImgmathPrimitives(PrimitivesBASE):
 
+    def __init__(self):
+        self.readnoise = None
+        super(ImgmathPrimitives, self).__init__()
+
     def image_combine(self, tab=None, combine_type='bias', in_directory=None,
                       suffix=None, method='average', unit='adu', keylog=None):
         if tab is not None:
@@ -85,13 +89,18 @@ class ImgmathPrimitives(PrimitivesBASE):
             else:
                 suff = '_' + suffix + '.fits'
 
-            subtrahend = None
-            for f in flist:
-                infile = os.path.join(pref, f.split('.')[0] + suff)
+            infile = os.path.join(pref, flist[0].split('.')[0] + suff)
+            if os.path.exists(infile):
                 self.log.info("reading image to subtract: %s" % infile)
                 subtrahend = KeckDRP.KcwiCCD.read(infile, unit=unit)
+                # get readnoise from master bias
+                if 'master_bias' in infile:
+                    bias_rn = []
+                    namps = subtrahend.header['NVIDINP']
+                    for ia in range(namps):
+                        bias_rn.append(subtrahend.header['BIASRN%d' % (ia + 1)])
+                    self.readnoise = bias_rn
 
-            if subtrahend is not None:
                 result = self.frame.subtract(subtrahend,
                                              handle_meta="first_found")
                 self.set_frame(result)
@@ -106,7 +115,7 @@ class ImgmathPrimitives(PrimitivesBASE):
                 self.frame.header['HISTORY'] = logstr
                 self.log.info(self.img_subtract.__qualname__)
             else:
-                self.log.error("Error - empty subtrahend")
+                self.log.error("file doesn't exist: %s" % infile)
         else:
             self.log.error("no image found to subtract")
 
