@@ -118,7 +118,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.maxrow = None          # Upper limit for central fit (px)
         self.offset_wave = None     # atlas-arc offset in Angstroms
         self.offset_pix = None      # atlas-arc offset in pixels
-        self.centcoeff = None       # Coeffs for central fit of each bar
+        self.centcoeff = []         # Coeffs for central fit of each bar
         self.readnoise = None       # readnoise (e-)
         super(KcwiPrimitives, self).__init__()
 
@@ -931,15 +931,15 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # containers for bar-specific values
         bardisp = []
         barshift = []
-        centcoeff = []
         centwave = []
         centdisp = []
-        # wavelength coefficients
-        coeff = [0., 0., 0., 0., 0.]
+
         # values for central fit
         subxvals = self.xvals[self.minrow:self.maxrow]
         # loop over bars
         for b, bs in enumerate(self.arcs):
+            # wavelength coefficients
+            coeff = [0., 0., 0., 0., 0.]
             # container for maxima, shifts
             maxima = []
             shifts = []
@@ -1036,6 +1036,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # store central values
             centwave.append(coeff[4])
             centdisp.append(coeff[3])
+            # Store results
+            self.centcoeff.append(coeff)
+
             if self.frame.inter() >= 1:
                 # plot maxima
                 pl.clf()
@@ -1053,8 +1056,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         pl.ioff()
                 else:
                     pl.pause(0.01)
-            # Store results
-            centcoeff.append(coeff)
+
         if self.frame.inter() >= 1:
             if self.frame.inter() >= 2:
                 pl.ion()
@@ -1091,8 +1093,52 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 input("Next? <cr>: ")
             else:
                 pl.pause(self.frame.plotpause())
-        # Store results
-        self.centcoeff = centcoeff
+
+    def solve_arcs(self):
+        """Solve arc wavelengths"""
+        # get pixel values (no longer centered in the middle)
+        xvals = self.xvals + self.x0
+
+        # set up output arrays
+        # keep track of final sigmas
+        sigmas = []
+        # keep track of individual bar fits
+        barstat = []
+        barrej = []
+        # keep track of observed versus atlas comparison
+        fwaves = []
+        dwaves = []
+        # keep track of refernece wavelengths and matched pixel positions
+        rwaves = []
+        xcents = []
+        # wavelength range
+        mnwvs = []
+        mxwvs = []
+
+        # pascal shift coeffs
+        twkcoeff = []
+        for b in range(self.NBARS):
+            twkcoeff.append(pascal_shift(self.centcoeff[b], self.x0))
+            waves = np.polyval(twkcoeff[-1], xvals)
+            mnwvs.append(np.min(waves))
+            mxwvs.append(np.max(waves))
+        minwav = min(mnwvs)
+        maxwav = max(mxwvs)
+        self.log.info("Min, Max wave (A): %.2f, %.2f" % (minwav, maxwav))
+        # get reference bar spectrum
+        subxvals = xvals[self.minrow:self.maxrow]
+        subyvals = self.arcs[self.REFBAR][self.minrow:self.maxrow]
+        subwvals = np.polyval(twkcoeff[self.REFBAR], subxvals)
+        # smooth subyvals
+        win = sp.signal.hanning(5)
+        subyvals = sp.signal.convolve(subyvals, win, mode='same') / sum(win)
+        spec_cent, _ = sp.signal.find_peaks(subyvals, height=500, distance=5,
+                                            prominence=2, width=3)
+        pl.ioff()
+        pl.clf()
+        pl.plot(subwvals, subyvals)
+        pl.plot(subwvals[spec_cent], subyvals[spec_cent], "x")
+        pl.show()
 
     def solve_geom(self):
         self.log.info("solve_geom")

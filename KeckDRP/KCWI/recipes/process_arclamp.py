@@ -30,4 +30,5 @@ def process_arclamp(p, frame):
     p.calc_prelim_disp()
     p.read_atlas()
     p.fit_center()
+    p.solve_arcs()
     p.solve_geom()
