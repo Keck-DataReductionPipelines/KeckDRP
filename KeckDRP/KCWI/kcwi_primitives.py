@@ -13,6 +13,8 @@ from scipy.signal import find_peaks
 from scipy import signal
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interpolate
+from scipy.optimize import curve_fit
+from scipy.stats import sigmaclip
 from skimage import transform as tf
 from astropy.table import Table
 import astropy.io.fits as pf
@@ -120,6 +122,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.offset_pix = None      # atlas-arc offset in pixels
         self.centcoeff = []         # Coeffs for central fit of each bar
         self.readnoise = None       # readnoise (e-)
+        self.at_wave = None         # atlas wavelength list
+        self.arc_xpos = None        # arc ref bar line x position list
+        self.arc_wave = None        # arc ref var line wavelength list
         super(KcwiPrimitives, self).__init__()
 
     @staticmethod
@@ -336,7 +341,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 diff = np.reshape(diff, diff.shape[0]*diff.shape[1]) * \
                     gain / 1.414
 
-                c, upp, low = sp.stats.sigmaclip(diff, low=3.5, high=3.5)
+                c, upp, low = sigmaclip(diff, low=3.5, high=3.5)
                 bias_rn = c.std()
                 self.log.info("Amp%d Read noise from bias in e-: %.3f" %
                               ((ia + 1), bias_rn))
@@ -795,9 +800,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         minrw = [i for i, v in enumerate(refwav) if v >= minwav][0]
         maxrw = [i for i, v in enumerate(refwav) if v <= maxwav][-1]
         # Subsample for cross-correlation
-        cc_obsarc = obsarc[minow:maxow]
+        cc_obsarc = obsarc[minow:maxow].copy()
         cc_obswav = obswav[minow:maxow]
-        cc_reflux = reflux[minrw:maxrw]
+        cc_reflux = reflux[minrw:maxrw].copy()
         cc_refwav = refwav[minrw:maxrw]
         # Resample onto reference wavelength scale
         obsint = interpolate.interp1d(cc_obswav, cc_obsarc, kind='cubic',
@@ -972,7 +977,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 maxrw = [i for i, v in enumerate(self.refwave)
                          if v <= maxwvl][-1]
                 subrefwvl = self.refwave[minrw:maxrw]
-                subrefspec = self.reflux[minrw:maxrw]
+                # need a copy to avoid altering original
+                subrefspec = self.reflux[minrw:maxrw].copy()
                 # get bell cosine taper to avoid nasty edge effects
                 tkwgt = signal.windows.tukey(len(subrefspec),
                                              alpha=self.frame.taperfrac())
@@ -1094,27 +1100,25 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             else:
                 pl.pause(self.frame.plotpause())
 
-    def solve_arcs(self):
-        """Solve arc wavelengths"""
-        # get pixel values (no longer centered in the middle)
-        xvals = self.xvals + self.x0
+    def get_atlas_lines(self):
+        """Get relevant atlas line positions and wavelengths"""
+        if KcwiConf.INTER >= 2:
+            do_inter = True
+            pl.ion()
+        else:
+            do_inter = False
 
-        # set up output arrays
-        # keep track of final sigmas
-        sigmas = []
-        # keep track of individual bar fits
-        barstat = []
-        barrej = []
-        # keep track of observed versus atlas comparison
-        fwaves = []
-        dwaves = []
-        # keep track of refernece wavelengths and matched pixel positions
-        rwaves = []
-        xcents = []
+        # get atlas wavelength range
+        #
+        # get pixel values (no longer centered in the middle)
+        specsz = len(self.arcs[self.REFBAR])
+        xvals = np.arange(0, specsz)
+        # min, max rows
+        minrow = 50
+        maxrow = specsz-50
         # wavelength range
         mnwvs = []
         mxwvs = []
-
         # pascal shift coeffs
         twkcoeff = []
         for b in range(self.NBARS):
@@ -1122,23 +1126,99 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             waves = np.polyval(twkcoeff[-1], xvals)
             mnwvs.append(np.min(waves))
             mxwvs.append(np.max(waves))
-        minwav = min(mnwvs)
-        maxwav = max(mxwvs)
+        minwav = min(mnwvs) - 100.
+        maxwav = max(mxwvs) + 100.
+        # Get corresponding atlas range
+        minrw = [i for i, v in enumerate(self.refwave) if v >= minwav][0]
+        maxrw = [i for i, v in enumerate(self.refwave) if v <= maxwav][-1]
         self.log.info("Min, Max wave (A): %.2f, %.2f" % (minwav, maxwav))
+        # get atlas sub spectrum
+        atspec = self.reflux[minrw:maxrw]
+        atwave = self.refwave[minrw:maxrw]
         # get reference bar spectrum
-        subxvals = xvals[self.minrow:self.maxrow]
-        subyvals = self.arcs[self.REFBAR][self.minrow:self.maxrow]
+        subxvals = xvals[minrow:maxrow]
+        subyvals = self.arcs[self.REFBAR][minrow:maxrow]
         subwvals = np.polyval(twkcoeff[self.REFBAR], subxvals)
         # smooth subyvals
         win = sp.signal.hanning(5)
         subyvals = sp.signal.convolve(subyvals, win, mode='same') / sum(win)
-        spec_cent, _ = sp.signal.find_peaks(subyvals, height=500, distance=5,
-                                            prominence=2, width=3)
+        # subyvals.tofile("spec.dat")
+        # find atlas peaks
+        hgt = np.median(atspec) * 2.
+        peaks, props = sp.signal.find_peaks(atspec, height=hgt, distance=20,
+                                            width=5)
+
+        def gaus(x, a, mu, sigma):
+            return a*np.exp(-(x-mu)**2/(2.*sigma**2))
+
+        sigs = []
+        cent = []
+        amps = []
+        for ipk, pk in enumerate(peaks):
+            x0 = int(props['left_ips'][ipk] - 1.)
+            x1 = int(props['right_ips'][ipk] + 1.) + 2
+            yvec = atspec[x0:x1]
+            xvec = atwave[x0:x1]
+            fit, _ = curve_fit(gaus, xvec, yvec, p0=[100., atwave[pk], 1.])
+            amps.append(fit[0])
+            cent.append(fit[1])
+            sigs.append(abs(fit[2]))
+        # compile stats
+        sig_clean, low, upp = sp.stats.sigmaclip(sigs, low=3.5, high=3.5)
+        mnsig = sig_clean.mean()
+        stsig = sig_clean.std()
+        self.log.info("<sig> = %.3f +- %.3f (px)" % (mnsig, stsig))
+
+        at_wave = []
+        at_amp = []
+        for ipk, pk in enumerate(peaks):
+            if mnsig + stsig > sigs[ipk] > mnsig - stsig:
+                at_wave.append(cent[ipk])
+                at_amp.append(amps[ipk])
+            else:
+                self.log.info("rejected: %.3f, sig = %.3f" % (cent[ipk],
+                                                              sigs[ipk]))
+            if KcwiConf.INTER >= 1:
+                x0 = int(props['left_ips'][ipk] - 1.)
+                x1 = int(props['right_ips'][ipk] + 1.) + 2
+                yvec = atspec[x0:x1]
+                xvec = atwave[x0:x1]
+                yfit = gaus(xvec, amps[ipk], cent[ipk], sigs[ipk])
+                pl.clf()
+                pl.plot(xvec, yvec, label='Data')
+                pl.plot(xvec, yfit, label='Fit')
+                ylim = pl.gca().get_ylim()
+                pl.plot([cent[ipk], cent[ipk]], ylim, '-.', label='Cent')
+                pl.xlabel("CCD Y (px)")
+                pl.ylabel("Flux (DN)")
+                pl.title("%d/%d: A, X, s = %.1f, %.2f, %.2f" %
+                         ((ipk+1), len(peaks), amps[ipk], cent[ipk], sigs[ipk]))
+                pl.legend()
+                if do_inter:
+                    q = input("<cr> - Next, q to quit: ")
+                    if 'Q' in q.upper():
+                        do_inter = False
+                        pl.ioff()
+                else:
+                    pl.pause(0.01)
         pl.ioff()
         pl.clf()
-        pl.plot(subwvals, subyvals)
-        pl.plot(subwvals[spec_cent], subyvals[spec_cent], "x")
+        norm_fac = np.nanmax(atspec)
+        pl.plot(subwvals, subyvals/np.nanmax(subyvals), label='RefArc')
+        ylim = pl.gca().get_ylim()
+        xlim = pl.gca().get_xlim()
+        pl.plot(atwave, atspec/norm_fac, label='Atlas')
+        pl.plot(xlim, [hgt, hgt]/norm_fac, '-.', color='grey', label='Height')
+        pl.xlim(xlim)
+        for iw, w in enumerate(at_wave):
+            pl.plot([w, w], [at_amp[iw], at_amp[iw]]/norm_fac, 'r|')
+        pl.xlabel("Wavelength (A)")
+        pl.ylabel("Flux (e-)")
+        pl.title("Arc Spectrum")
+        pl.legend()
         pl.show()
+        # store results
+        self.at_wave = at_wave
 
     def solve_geom(self):
         self.log.info("solve_geom")
