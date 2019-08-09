@@ -173,6 +173,14 @@ class KcwiCCD(CCDData):
     def oscanbuf(self):
         return KcwiConf.OSCANBUF
 
+    def plotlabel(self):
+        lab = "Img # %d " % self.header['FRAMENO']
+        lab += "(%s) " % self.illum()
+        lab += "Sl: %s " % self.ifuname()
+        lab += "Fl: %s " % self.filter()
+        lab += "Gr: %s " % self.grating()
+        return lab
+
     def plotpause(self):
         return KcwiConf.PLOTPAUSE
 
