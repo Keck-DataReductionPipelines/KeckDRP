@@ -109,39 +109,40 @@ class KcwiCCD(CCDData):
                              "CAMERA undefined")
         return self.header[key]
 
-    def atres(self):
+    def resolution(self, refwave=None):
+        """Return FWHM resolution in Angstroms for the given grating"""
+        # get reference wavelength
+        if refwave:
+            rw = refwave
+        else:
+            if 'B' in self.grating():
+                rw = 4500.
+            else:
+                rw = 7500.
+        # Calc rez from grating resolution (d-lambda = lambda/R)
+        # First, assume large slicer IFU
         if 'BH' in self.grating():
-            atsig = 2.5
-            if self.ifunum() > 2:
-                atsig = 1.5
+            rez = rw / 5000.
         elif 'RH' in self.grating():
-            atsig = 2.5
-            if self.ifunum() > 2:
-                atsig = 1.5
+            rez = rw / 5000.
         elif 'BM' in self.grating():
-            atsig = 4.0
-            if self.ifunum() > 2:
-                atsig = 2.0
+            rez = rw / 2500.
         elif 'RM' in self.grating():
-            atsig = 4.0
-            if self.ifunum() > 2:
-                atsig = 2.0
+            rez = rw / 2500.
         elif 'BL' in self.grating():
-            atsig = 20.0
-            if self.ifunum() == 2:
-                atsig = 10.0
-            elif self.ifunum() == 3:
-                atsig = 7.0
+            rez = rw / 1250.
         elif 'RL' in self.grating():
-            atsig = 14.0
-            if self.ifunum() == 2:
-                atsig = 10.
-            elif self.ifunum() == 3:
-                atsig = 7.0
+            rez = rw / 1250.
         else:
             raise ValueError("unable to compute atlas resolution: "
                              "grating undefined")
-        return atsig
+        # Adjust for slicer
+        if self.ifunum() == 2:      # Medium slicer
+            rez /= 2.
+        elif self.ifunum() == 3:    # Small slicer
+            rez /= 4.
+
+        return rez
 
     def namps(self):
         return self.header['NVIDINP']
