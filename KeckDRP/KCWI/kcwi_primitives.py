@@ -1279,15 +1279,15 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             master_inter = True
         else:
             master_inter = False
-
+        # window distance
         dis = self.frame.resolution(self.frame.cwave()) * 2.
         if dis < 1.0:
             dis = 1.0
         self.log.info("Window is %.3f Ang wide" % (dis*2.))
-
+        # store fit stats
         bar_sig = []
         bar_nls = []
-
+        # loop over bars
         for ib, b in enumerate(self.arcs):
             print("")
             self.log.info("BAR %d" % ib)
@@ -1298,7 +1298,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             else:
                 do_inter = False
             coeff = self.twkcoeff[ib]
-
             # get pixel values
             xvals = np.arange(0, len(b))
             bw = np.polyval(coeff, xvals)
@@ -1308,8 +1307,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # store values to fit
             at_wave_dat = []
             ob_pix_dat = []
-
+            # loop over lines
             for iw, aw in enumerate(self.at_wave):
+                # get window for this line
                 try:
                     minow = [i for i, v in enumerate(bw) if v >= (aw-dis)][0]
                     maxow = [i for i, v in enumerate(bw) if v <= (aw+dis)][-1]
@@ -1361,7 +1361,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     self.log.info("Interpolation error for line at %.2f" % aw)
             # Fit wavelengths
             # Initial fit
-            wfit = np.polyfit(ob_pix_dat, at_wave_dat, 5)
+            wfit = np.polyfit(ob_pix_dat, at_wave_dat, 4)
             pwfit = np.poly1d(wfit)
             at_wave_fit = pwfit(ob_pix_dat)
             resid = at_wave_fit - at_wave_dat
@@ -1382,7 +1382,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 # refit
                 ob_pix_dat = ob_dat.copy()
                 at_wave_dat = at_dat.copy()
-                wfit = np.polyfit(ob_pix_dat, at_wave_dat, 5)
+                wfit = np.polyfit(ob_pix_dat, at_wave_dat, 4)
                 pwfit = np.poly1d(wfit)
                 at_wave_fit = pwfit(ob_pix_dat)
                 resid = at_wave_fit - at_wave_dat
@@ -1391,7 +1391,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.fincoeff.append(wfit)
             bar_sig.append(wsig)
             bar_nls.append(len(ob_pix_dat))
-            # plot results
+            # plot bar fit residuals
             if master_inter:
                 pl.ion()
                 pl.clf()
@@ -1414,6 +1414,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 if 'Q' in q.upper():
                     master_inter = False
                     pl.ioff()
+                # overplot atlas and bar using fit wavelengths
                 pl.clf()
                 bwav = pwfit(xvals)
                 pl.plot(bwav, b, label='Arc')
@@ -1491,8 +1492,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         else:
             pl.pause(self.frame.plotpause())
         # Plot coefs
-        ylabs = ['Ang/px^5', 'Ang/px^4', 'Ang/px^3',
-                 'Ang/px^2', 'Ang/px', 'Ang']
+        ylabs = ['Ang/px^4', 'Ang/px^3', 'Ang/px^2', 'Ang/px', 'Ang']
         for ic in reversed(range(len(self.fincoeff[0]))):
             pl.clf()
             coef = []
