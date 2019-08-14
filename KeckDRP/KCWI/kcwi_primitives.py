@@ -10,6 +10,7 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate as interp
 from scipy.signal import find_peaks
+from scipy.signal.windows import boxcar
 from scipy import signal
 from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interpolate
@@ -92,6 +93,83 @@ def pascal_shift(coef=None, x0=None):
         fincoeff = fincoeff[0:len(coef)]
     # Reverse for python
     return list(reversed(fincoeff))
+
+
+def get_line_window(y, c, verbose=False):
+    """Find a window that includes the fwhm of the line"""
+    nx = len(y)
+    # check edges
+    if c < 2 or c > nx - 2:
+        if verbose:
+            print("input center too close to edge")
+        return None, None, 0
+    # get initial values
+    x0 = c - 2
+    x1 = c + 3
+    mx = np.nanmax(y[x0:x1])
+    count = 5
+    # check low side
+    if x0 - 1 < 0:
+        if verbose:
+            print("max check: low edge hit")
+        return None, None, 0
+    while y[x0-1] > mx:
+        x0 -= 1
+        count += 1
+        if x0 - 1 < 0:
+            if verbose:
+                print("Max check: low edge hit")
+            return None, None, 0
+
+    # check high side
+    if x1 + 1 > nx:
+        if verbose:
+            print("max check: high edge hit")
+        return None, None, 0
+    while y[x1+1] > mx:
+        x1 += 1
+        count += 1
+        if x1 + 1 > nx:
+            if verbose:
+                print("Max check: high edge hit")
+            return None, None, 0
+
+    hmx = mx * 0.5
+    #
+    # expand until we get to half max
+    #
+    # Low index side
+    prev = mx
+    while y[x0] > hmx:
+        if y[x0] > mx or x0 <= 0 or y[x0] > prev:
+            if verbose:
+                if y[x0] > mx:
+                    print("hafmax check: low index err - missed max")
+                if x0 <= 0:
+                    print("hafmax check: low index err - at edge")
+                if y[x0] > prev:
+                    print("hafmax check: low index err - wiggly")
+            return None, None, 0
+        prev = y[x0]
+        x0 -= 1
+        count += 1
+    # High index side
+    prev = mx
+    while y[x1] > hmx:
+        if y[x1] > mx or x1 >= nx or y[x1] > prev:
+            if verbose:
+                if y[x1] > mx:
+                    print("hafmax check: high index err - missed max")
+                if x1 >= nx:
+                    print("hafmax check: high index err - at edge")
+                if y[x1] > prev:
+                    print("hafmax check: high index err - wiggly")
+            return None, None, 0
+        prev = y[x1]
+        x1 += 1
+        count += 1
+
+    return x0, x1, count
 
 
 class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
@@ -739,13 +817,34 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     pl.ylim(bottom=0.)
                     pl.xlabel("CCD y (px)")
                     pl.ylabel("e-")
-                    pl.title("Arc %d Slice %d XCorr, Shift = %d" %
+                    pl.title(self.frame.plotlabel() +
+                             " Arc %d Slice %d XCorr, Shift = %d" %
                              (na, int(na/5), offset))
                     pl.show()
                     q = input("<cr> - Next, q to quit: ")
                     if 'Q' in q.upper():
                         do_plot = False
             self.baroffs = offsets
+            if self.frame.inter() >= 1:
+                if self.frame.inter() >= 2:
+                    pl.ion()
+                else:
+                    pl.ioff()
+                pl.clf()
+                pl.plot(offsets, 'd')
+                ylim = pl.gca().get_ylim()
+                for ix in range(1, 24):
+                    sx = ix * 5 - 0.5
+                    pl.plot([sx, sx], ylim, 'k-.')
+                pl.plot([-1, 120], [0., 0.], 'k--')
+                pl.xlabel("Bar #")
+                pl.ylabel("Offset (px)")
+                pl.title(self.frame.plotlabel())
+                pl.gca().margins(0)
+                if self.frame.inter() >= 2:
+                    input("Next? <cr>: ")
+                else:
+                    pl.pause(self.frame.plotpause())
         else:
             self.log.error("No extracted arcs found")
 
@@ -1152,12 +1251,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         subyvals = self.arcs[self.REFBAR][minrow:maxrow].copy()
         subwvals = np.polyval(twkcoeff[self.REFBAR], subxvals)
         # smooth subyvals
-        win = sp.signal.hanning(5)
+        win = boxcar(3)
         subyvals = sp.signal.convolve(subyvals, win, mode='same') / sum(win)
         # np.save("obspec", subyvals)
         # np.save("atspec", atspec)
         # find atlas peaks
-        hgt = np.median(atspec) * 2.
+        hgt = np.median(atspec) * 2.0
         wid = [self.atrespix * 0.5, self.atrespix * 3.0]
         dis = self.atrespix * 4.    # avoid blended lines
         self.log.info("Using distance of %.1f and width range of %.1f - %.1f" %
@@ -1258,8 +1357,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         pl.plot(xlim, [hgt, hgt] / norm_fac, '-.', color='grey', label='Height')
         pl.xlim(xlim)
         for iw, w in enumerate(at_wave):
-            pl.plot([w, w], [at_amp[iw], at_amp[iw]] / norm_fac, 'd',
-                    color='black')
+            pl.plot([w, w], [at_amp[iw], at_amp[iw]] / norm_fac, 'kd')
         for iw, w in enumerate(rej_wave):
             pl.plot([w, w], [rej_amp[iw], rej_amp[iw]] / norm_fac, 'rd')
         pl.xlabel("Wavelength (A)")
@@ -1275,10 +1373,15 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
 
     def solve_arcs(self):
         """Solve the bar arc wavelengths"""
-        if KcwiConf.INTER >= 3:
+        if KcwiConf.INTER >= 2:
             master_inter = True
         else:
             master_inter = False
+        if KcwiConf.INTER >= 3:
+            do_inter = True
+            pl.ion()
+        else:
+            do_inter = False
         # window distance
         dis = self.frame.resolution(self.frame.cwave()) * 2.
         if dis < 1.0:
@@ -1292,17 +1395,15 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             print("")
             self.log.info("BAR %d" % ib)
             print("")
-            if KcwiConf.INTER >= 3:
-                do_inter = True
-                pl.ion()
-            else:
-                do_inter = False
             coeff = self.twkcoeff[ib]
             # get pixel values
             xvals = np.arange(0, len(b))
             bw = np.polyval(coeff, xvals)
             # smooth spectrum
-            win = sp.signal.hanning(5)
+            if 'L' in self.frame.grating():
+                win = boxcar(3)     # lo-rez smoothing double
+            else:
+                win = boxcar(3)
             bspec = sp.signal.convolve(b, win, mode='same') / sum(win)
             # store values to fit
             at_wave_dat = []
@@ -1311,13 +1412,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             for iw, aw in enumerate(self.at_wave):
                 # get window for this line
                 try:
-                    minow = [i for i, v in enumerate(bw) if v >= (aw-dis)][0]
-                    maxow = [i for i, v in enumerate(bw) if v <= (aw+dis)][-1]
-                    # self.log.info("minx, maxx = %d, %d" % (minow, maxow))
-                    if (maxow-minow) < 5:
-                        self.log.info("Window too small: [%d:%d], "
+                    lindex = [i for i, v in enumerate(bw) if v >= aw][0]
+                    minow, maxow, count = get_line_window(bspec, lindex)
+                    if count < 5 or not minow or not maxow:
+                        self.log.info("Window error: count = %d, "
                                       "skipping line at %.3f"
-                                      % (minow, maxow, aw))
+                                      % (count, aw))
                         continue
                     yvec = bspec[minow:maxow]
                     xvec = xvals[minow:maxow]
@@ -1329,6 +1429,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     # get peak value
                     plt_line = int_line(xplot)
                     max_index = plt_line.argmax()
+                    max_value = plt_line[max_index]
                     if max_index < 5 or max_index > (len(xplot)-5):
                         # self.log.info("Edge problem! (max_index = %3d) "
                         #               "for line %3d" % (max_index, iw))
@@ -1340,11 +1441,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         pl.clf()
                         pl.plot(xvec, yvec, 'r.', label='Data')
                         pl.plot(xplot, plt_line, label='Int')
-                        ylim = pl.gca().get_ylim()
+                        ylim = [0, pl.gca().get_ylim()[1]]
+                        xlim = pl.gca().get_xlim()
+                        pl.plot(xlim, [max_value*0.5, max_value*0.5], 'k--')
                         pl.plot([cent, cent], ylim, '-.',
                                 label='MAX')
                         pl.xlabel("CCD Y (px)")
                         pl.ylabel("Flux (DN)")
+                        pl.ylim(ylim)
                         ptitle = "Bar: %d - %3d/%3d: X = %8.1f" % \
                                  (ib, (iw + 1), len(self.at_wave), cent)
                         pl.title(ptitle)
@@ -1388,6 +1492,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 resid = at_wave_fit - at_wave_dat
                 wsig = np.nanstd(resid)
             # store results
+            print("")
+            self.log.info("Bar %03d, Slice = %02d, RMS = %.3f, N = %d" %
+                          (ib, int(ib / 5), wsig, len(ob_pix_dat)))
+            print("")
             self.fincoeff.append(wfit)
             bar_sig.append(wsig)
             bar_nls.append(len(ob_pix_dat))
@@ -1410,10 +1518,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         label='CWAV')
                 pl.xlim(xlim)
                 pl.legend()
-                q = input("Next? <cr>, q - quit: ")
-                if 'Q' in q.upper():
-                    master_inter = False
-                    pl.ioff()
+                input("Next? <cr>: ")
+
                 # overplot atlas and bar using fit wavelengths
                 pl.clf()
                 bwav = pwfit(xvals)
