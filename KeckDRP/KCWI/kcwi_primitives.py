@@ -95,6 +95,11 @@ def pascal_shift(coef=None, x0=None):
     return list(reversed(fincoeff))
 
 
+def gaus(x, a, mu, sigma):
+    """Gaussian fitting function"""
+    return a * np.exp(-(x - mu) ** 2 / (2. * sigma ** 2))
+
+
 def get_line_window(y, c, verbose=False):
     """Find a window that includes the fwhm of the line"""
     nx = len(y)
@@ -105,7 +110,7 @@ def get_line_window(y, c, verbose=False):
         return None, None, 0
     # get initial values
     x0 = c - 2
-    x1 = c + 3
+    x1 = c + 2
     mx = np.nanmax(y[x0:x1])
     count = 5
     # check low side
@@ -1265,10 +1270,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                                             width=wid)
         self.log.info("Found %d peaks" % len(peaks))
 
-        def gaus(x, a, mu, sigma):
-            """Gaussian fitting function"""
-            return a*np.exp(-(x-mu)**2/(2.*sigma**2))
-
         # Fit gaussian to peaks
         sigs = []
         cent = []
@@ -1324,7 +1325,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     ylim = pl.gca().get_ylim()
                     pl.plot([cent[ipk], cent[ipk]], ylim, '-.', label='Cent')
                     pl.plot([at_wave[-1], at_wave[-1]], ylim, '-', label='MAX')
-                    pl.xlabel("CCD Y (px)")
+                    pl.xlabel("Wavelength (A)")
                     pl.ylabel("Flux (DN)")
                     ptitle = "%3d/%3d: Wid, A, X, s = " \
                              "%2d, %8.1f, %9.3f, %9.3f" % \
@@ -1382,11 +1383,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.ion()
         else:
             do_inter = False
-        # window distance
-        dis = self.frame.resolution(self.frame.cwave()) * 2.
-        if dis < 1.0:
-            dis = 1.0
-        self.log.info("Window is %.3f Ang wide" % (dis*2.))
         # store fit stats
         bar_sig = []
         bar_nls = []
@@ -1400,10 +1396,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             xvals = np.arange(0, len(b))
             bw = np.polyval(coeff, xvals)
             # smooth spectrum
-            if 'L' in self.frame.grating():
-                win = boxcar(3)     # lo-rez smoothing double
-            else:
-                win = boxcar(3)
+            win = boxcar(3)
             bspec = sp.signal.convolve(b, win, mode='same') / sum(win)
             # store values to fit
             at_wave_dat = []
@@ -1412,15 +1405,16 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             for iw, aw in enumerate(self.at_wave):
                 # get window for this line
                 try:
-                    lindex = [i for i, v in enumerate(bw) if v >= aw][0]
-                    minow, maxow, count = get_line_window(bspec, lindex)
+                    line_x = [i for i, v in enumerate(bw) if v >= aw][0]
+                    minow, maxow, count = get_line_window(bspec, line_x)
                     if count < 5 or not minow or not maxow:
-                        self.log.info("Window error: count = %d, "
-                                      "skipping line at %.3f"
-                                      % (count, aw))
+                        # self.log.info("Window error: count = %d, "
+                        #              "skipping line at %.3f"
+                        #              % (count, aw))
                         continue
-                    yvec = bspec[minow:maxow]
-                    xvec = xvals[minow:maxow]
+                    yvec = bspec[minow:maxow+1]
+                    xvec = xvals[minow:maxow+1]
+                    max_value = yvec[yvec.argmax()]
                     # Get interpolation
                     int_line = interpolate.interp1d(xvec, yvec, kind='cubic',
                                                     bounds_error=False,
@@ -1429,14 +1423,25 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     # get peak value
                     plt_line = int_line(xplot)
                     max_index = plt_line.argmax()
-                    max_value = plt_line[max_index]
-                    if max_index < 5 or max_index > (len(xplot)-5):
-                        # self.log.info("Edge problem! (max_index = %3d) "
-                        #               "for line %3d" % (max_index, iw))
+                    peak = xplot[max_index]
+                    # Calculate centroid
+                    cent = np.sum(xvec * yvec) / np.sum(yvec)
+                    # Gaussian fit
+                    try:
+                        fit, _ = curve_fit(gaus, xvec, yvec,
+                                           p0=[100., cent, 1.])
+                        if fit[2] < count:
+                            gcent = fit[1]
+                        else:
+                            print("Bad Gaussian")
+                            continue
+                    except RuntimeError:
+                        print("Gaussian fit failed")
                         continue
-                    cent = xplot[max_index]
-                    ob_pix_dat.append(cent)
+                    # store data
+                    ob_pix_dat.append(gcent)
                     at_wave_dat.append(aw)
+                    # plot, if requested
                     if do_inter:
                         pl.clf()
                         pl.plot(xvec, yvec, 'r.', label='Data')
@@ -1444,13 +1449,17 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         ylim = [0, pl.gca().get_ylim()[1]]
                         xlim = pl.gca().get_xlim()
                         pl.plot(xlim, [max_value*0.5, max_value*0.5], 'k--')
-                        pl.plot([cent, cent], ylim, '-.',
-                                label='MAX')
+                        pl.plot([cent, cent], ylim, 'g--', label='Cntr')
+                        pl.plot([line_x, line_x], ylim, 'r-.', label='X in')
+                        pl.plot([peak, peak], ylim, 'c-.', label='Peak')
+                        pl.plot([gcent, gcent], ylim, 'm-.', label='Gcen')
                         pl.xlabel("CCD Y (px)")
                         pl.ylabel("Flux (DN)")
                         pl.ylim(ylim)
-                        ptitle = "Bar: %d - %3d/%3d: X = %8.1f" % \
-                                 (ib, (iw + 1), len(self.at_wave), cent)
+                        ptitle = "Bar: %d - %3d/%3d: x0, x1, Cent, Wave = " \
+                                 "%d, %d, %8.1f, %9.2f" % \
+                                 (ib, (iw + 1), len(self.at_wave),
+                                  minow, maxow, cent, aw)
                         pl.title(ptitle)
                         pl.legend()
 
