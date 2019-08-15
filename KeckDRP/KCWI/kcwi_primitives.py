@@ -111,7 +111,7 @@ def get_line_window(y, c, verbose=False):
     # get initial values
     x0 = c - 2
     x1 = c + 2
-    mx = np.nanmax(y[x0:x1])
+    mx = np.nanmax(y[x0:x1+1])
     count = 5
     # check low side
     if x0 - 1 < 0:
@@ -138,10 +138,13 @@ def get_line_window(y, c, verbose=False):
             if verbose:
                 print("Max check: high edge hit")
             return None, None, 0
-
-    hmx = mx * 0.5
+    # adjust starting window to center on max
+    cmx = x0 + y[x0:x1+1].argmax()
+    x0 = cmx - 2
+    x1 = cmx + 2
     #
     # expand until we get to half max
+    hmx = mx * 0.5
     #
     # Low index side
     prev = mx
@@ -1363,7 +1366,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.plot([w, w], [rej_amp[iw], rej_amp[iw]] / norm_fac, 'rd')
         pl.xlabel("Wavelength (A)")
         pl.ylabel("Flux (e-)")
-        pl.title(self.frame.plotlabel())
+        pl.title(self.frame.plotlabel() + " Ngood = %d, Nrej = %d" %
+                 (len(at_wave), len(rej_wave)))
         pl.legend()
         if self.frame.inter() >= 2:
             input("Next? <cr>: ")
@@ -1395,12 +1399,19 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # get pixel values
             xvals = np.arange(0, len(b))
             bw = np.polyval(coeff, xvals)
-            # smooth spectrum
-            win = boxcar(3)
-            bspec = sp.signal.convolve(b, win, mode='same') / sum(win)
+            # smooth spectrum according to slicer
+            if 'Small' in self.frame.ifuname():
+                bspec = b
+            else:
+                if 'Large' in self.frame.ifuname():
+                    win = boxcar(5)
+                else:
+                    win = boxcar(3)
+                bspec = sp.signal.convolve(b, win, mode='same') / sum(win)
             # store values to fit
             at_wave_dat = []
             ob_pix_dat = []
+            nrej = 0
             # loop over lines
             for iw, aw in enumerate(self.at_wave):
                 # get window for this line
@@ -1411,6 +1422,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         # self.log.info("Window error: count = %d, "
                         #              "skipping line at %.3f"
                         #              % (count, aw))
+                        nrej += 1
                         continue
                     yvec = bspec[minow:maxow+1]
                     xvec = xvals[minow:maxow+1]
@@ -1426,20 +1438,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     peak = xplot[max_index]
                     # Calculate centroid
                     cent = np.sum(xvec * yvec) / np.sum(yvec)
-                    # Gaussian fit
-                    try:
-                        fit, _ = curve_fit(gaus, xvec, yvec,
-                                           p0=[100., cent, 1.])
-                        if fit[2] < count:
-                            gcent = fit[1]
-                        else:
-                            print("Bad Gaussian")
-                            continue
-                    except RuntimeError:
-                        print("Gaussian fit failed")
+                    if abs(cent - peak) > 0.7:
+                        # print("High cent - peak offset: %.3f, skipping %.3f" %
+                        #      (abs(cent - peak), aw))
+                        nrej += 1
                         continue
                     # store data
-                    ob_pix_dat.append(gcent)
+                    ob_pix_dat.append(peak)
                     at_wave_dat.append(aw)
                     # plot, if requested
                     if do_inter:
@@ -1452,7 +1457,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         pl.plot([cent, cent], ylim, 'g--', label='Cntr')
                         pl.plot([line_x, line_x], ylim, 'r-.', label='X in')
                         pl.plot([peak, peak], ylim, 'c-.', label='Peak')
-                        pl.plot([gcent, gcent], ylim, 'm-.', label='Gcen')
+                        # pl.plot([gcent, gcent], ylim, 'm-.', label='Gcen')
                         pl.xlabel("CCD Y (px)")
                         pl.ylabel("Flux (DN)")
                         pl.ylim(ylim)
@@ -1469,9 +1474,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                             pl.ioff()
                 except IndexError:
                     # self.log.info("Atlas line not in observation: %.2f" % aw)
+                    nrej += 1
                     continue
                 except ValueError:
                     self.log.info("Interpolation error for line at %.2f" % aw)
+                    nrej += 1
+            self.log.info("Fitting wavelength solution starting with %d "
+                          "lines after rejecting %d lines" %
+                          (len(ob_pix_dat), nrej))
             # Fit wavelengths
             # Initial fit
             wfit = np.polyfit(ob_pix_dat, at_wave_dat, 4)
