@@ -1216,11 +1216,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 # plot maxima
                 pl.clf()
                 pl.plot(disps, maxima, 'r.', label='Data', ms=8)
-                pl.plot(xdisps, int_max(xdisps), '-', label='Int')
+                pl.plot(xdisps, int_max(xdisps), '-', label='Interp')
                 ylim = pl.gca().get_ylim()
-                pl.plot([bardisp[-1], bardisp[-1]], ylim, 'g--', label='BrDsp')
+                pl.plot([bardisp[-1], bardisp[-1]], ylim, 'g--',
+                        label='Peak Disp')
                 pl.plot([self.prelim_disp, self.prelim_disp], ylim, 'r-.',
-                        label='InDsp')
+                        label='Init Disp')
                 pl.xlabel("Central Dispersion (Ang/px)")
                 pl.ylabel("X-Corr Peak Value")
                 pl.title(self.frame.plotlabel() +
@@ -1330,15 +1331,25 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         if peak_width < 4:
             peak_width = 4
         self.log.info("Using a peak_width of %d px" % peak_width)
-        spec_cent, avwsg = findpeaks(subwvals, subyvals, smooth_width,
+        init_cent, avwsg = findpeaks(subwvals, subyvals, smooth_width,
                                      slope_thresh, ampl_thresh, peak_width)
         avwfwhm = avwsg * 2.354
         self.log.info("Found %d peaks with <sig> = %.3f (A), <FWHM> = %.3f (A)"
-                      % (len(spec_cent), avwsg, avwfwhm))
+                      % (len(init_cent), avwsg, avwfwhm))
         if 'BH' in self.frame.grating() or 'BM' in self.frame.grating():
             fwid = avwfwhm
         else:
             fwid = avwsg
+        # clean near neighbors
+        diffs = np.diff(init_cent)
+        spec_cent = []
+        for i, w in enumerate(init_cent):
+            if i == 0 or i == len(diffs):
+                continue
+            if diffs[i-1] < avwfwhm * 1.5 or diffs[i] < avwfwhm * 1.5:
+                continue
+            spec_cent.append(w)
+        self.log.info("Found %d isolated peaks" % len(spec_cent))
         #
         # generate an atlas line list
         refxs = []
@@ -1393,7 +1404,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 nrej += 1
                 self.log.info("Arc Gaussian fit rejected for line %.3f" % pk)
                 continue
-            pka = yvec.argmax()
             xrat = fit[2] / (avwsg / abs(twkcoeff[self.REFBAR][3]))
             if xrat > 1.25 or fit[2] > count:
                 nrej += 1
@@ -1458,8 +1468,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.plot([w, w], [refas_c[iw], refas_c[iw]] / norm_fac, 'kd')
         for iw, w in enumerate(rej_refws):
             pl.plot([w, w], [rej_refas[iw], rej_refas[iw]] / norm_fac, 'rd')
-        for iw, w in enumerate(spec_cent):
+        for iw, w in enumerate(init_cent):
             pl.plot([w, w], ylim, 'c--')
+        for iw, w in enumerate(spec_cent):
+            pl.plot([w, w], ylim, 'g--')
         pl.xlabel("Wavelength (A)")
         pl.ylabel("Flux (e-)")
         pl.title(self.frame.plotlabel() + " Ngood = %d, Nrej = %d" %
@@ -1514,7 +1526,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             #              (spmed, spmode.mode[0]))
             # store values to fit
             at_wave_dat = []
-            ob_pix_dat = []
+            arc_pix_dat = []
+            rej_wave = []
             nrej = 0
             # loop over lines
             for iw, aw in enumerate(self.at_wave):
@@ -1522,15 +1535,31 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 try:
                     line_x = [i for i, v in enumerate(bw) if v >= aw][0]
                     minow, maxow, count = get_line_window(bspec, line_x,
-                                                          thresh=hgt,
-                                                          verbose=True)
+                                                          thresh=hgt)
                     if count < 5 or not minow or not maxow:
+                        rej_wave.append(aw)
                         nrej += 1
                         self.log.info("Arc window rejected for line %.3f" % aw)
+                        continue
+                    if minow > line_x > maxow:
+                        rej_wave.append(aw)
+                        nrej += 1
+                        self.log.info("Arc window wandered off for line %.3f"
+                                      % aw)
                         continue
                     yvec = bspec[minow:maxow+1]
                     xvec = xvals[minow:maxow+1]
                     max_value = yvec[yvec.argmax()]
+                    # Gaussian fit
+                    try:
+                        fit, _ = curve_fit(gaus, xvec, yvec,
+                                           p0=[100., line_x, 1.])
+                    except RuntimeError:
+                        nrej += 1
+                        self.log.info(
+                            "Arc Gaussian fit rejected for line %.3f" % aw)
+                        continue
+                    sp_pk_x = fit[1]
                     # Get interpolation
                     int_line = interpolate.interp1d(xvec, yvec, kind='cubic',
                                                     bounds_error=False,
@@ -1543,24 +1572,26 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     # Calculate centroid
                     cent = np.sum(xvec * yvec) / np.sum(yvec)
                     if abs(cent - peak) > 0.7:
+                        rej_wave.append(aw)
                         nrej += 1
-                        self.log.info("Arc peak - cent offset rejected for"
+                        self.log.info("Arc peak - cent offset rejected for "
                                       "line %.3f" % aw)
                         continue
                     # store data
-                    ob_pix_dat.append(peak)
+                    arc_pix_dat.append(peak)
                     at_wave_dat.append(aw)
                     # plot, if requested
                     if do_inter:
                         pl.clf()
                         pl.plot(xvec, yvec, 'r.', label='Data')
-                        pl.plot(xplot, plt_line, label='Int')
+                        pl.plot(xplot, plt_line, label='Interp')
                         ylim = [0, pl.gca().get_ylim()[1]]
                         xlim = pl.gca().get_xlim()
                         pl.plot(xlim, [max_value*0.5, max_value*0.5], 'k--')
                         pl.plot([cent, cent], ylim, 'g--', label='Cntr')
                         pl.plot([line_x, line_x], ylim, 'r-.', label='X in')
                         pl.plot([peak, peak], ylim, 'c-.', label='Peak')
+                        pl.plot([sp_pk_x, sp_pk_x], ylim, 'm-.', label='Gpeak')
                         pl.xlabel("CCD Y (px)")
                         pl.ylabel("Flux (DN)")
                         pl.ylim(ylim)
@@ -1577,67 +1608,71 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                             pl.ioff()
                 except IndexError:
                     self.log.info("Atlas line not in observation: %.2f" % aw)
+                    rej_wave.append(aw)
                     nrej += 1
                     continue
                 except ValueError:
                     self.log.info("Interpolation error for line at %.2f" % aw)
+                    rej_wave.append(aw)
                     nrej += 1
             self.log.info("Fitting wavelength solution starting with %d "
                           "lines after rejecting %d lines" %
-                          (len(ob_pix_dat), nrej))
+                          (len(arc_pix_dat), nrej))
             # Fit wavelengths
             # Initial fit
-            wfit = np.polyfit(ob_pix_dat, at_wave_dat, 4)
+            wfit = np.polyfit(arc_pix_dat, at_wave_dat, 4)
             pwfit = np.poly1d(wfit)
-            at_wave_fit = pwfit(ob_pix_dat)
-            resid = at_wave_fit - at_wave_dat
-            wsig = np.nanstd(resid)
-            rej_wave = []
+            arc_wave_fit = pwfit(arc_pix_dat)
+            resid = arc_wave_fit - at_wave_dat
+            resid_c, low, upp = sigmaclip(resid, low=3., high=3.)
+            wsig = resid_c.std()
             rej_rsd = []
+            rej_rsd_wave = []
             # Iteratively remove outliers
             for it in range(4):
                 # self.log.info("Iteration %d" % it)
-                ob_dat = []
+                arc_dat = []
                 at_dat = []
                 # Trim outliers
                 for il, rsd in enumerate(resid):
-                    if abs(rsd) < wsig * 2.5:
-                        ob_dat.append(ob_pix_dat[il])
+                    if low < rsd < upp:
+                        arc_dat.append(arc_pix_dat[il])
                         at_dat.append(at_wave_dat[il])
                     else:
                         # self.log.info("REJ: %d, %.2f, %.3f" %
-                        #              (il, ob_pix_dat[il], at_wave_dat[il]))
-                        rej_wave.append(at_wave_dat[il])
+                        #              (il, arc_pix_dat[il], at_wave_dat[il]))
+                        rej_rsd_wave.append(at_wave_dat[il])
                         rej_rsd.append(rsd)
                 # refit
-                ob_pix_dat = ob_dat.copy()
+                arc_pix_dat = arc_dat.copy()
                 at_wave_dat = at_dat.copy()
-                wfit = np.polyfit(ob_pix_dat, at_wave_dat, 4)
+                wfit = np.polyfit(arc_pix_dat, at_wave_dat, 4)
                 pwfit = np.poly1d(wfit)
-                at_wave_fit = pwfit(ob_pix_dat)
-                resid = at_wave_fit - at_wave_dat
+                arc_wave_fit = pwfit(arc_pix_dat)
+                resid = arc_wave_fit - at_wave_dat
+                resid_c, low, upp = sigmaclip(resid, low=3., high=3.)
                 wsig = np.nanstd(resid)
             # store results
             # print("")
             self.log.info("Bar %03d, Slice = %02d, RMS = %.3f, N = %d" %
-                          (ib, int(ib / 5), wsig, len(ob_pix_dat)))
+                          (ib, int(ib / 5), wsig, len(arc_pix_dat)))
             # print("")
             self.fincoeff.append(wfit)
             bar_sig.append(wsig)
-            bar_nls.append(len(ob_pix_dat))
+            bar_nls.append(len(arc_pix_dat))
             # plot bar fit residuals
             if master_inter:
                 pl.ion()
                 pl.clf()
                 pl.plot(at_wave_dat, resid, 'd', label='Rsd')
                 ylim = pl.gca().get_ylim()
-                if rej_wave:
-                    pl.plot(rej_wave, rej_rsd, 'rd', label='Rej')
+                if rej_rsd_wave:
+                    pl.plot(rej_rsd_wave, rej_rsd, 'rd', label='Rej')
                 pl.xlabel("Wavelength (A)")
                 pl.ylabel("Fit - Inp (A)")
                 pl.title(self.frame.plotlabel() +
                          " Bar = %03d, Slice = %02d, RMS = %.3f, N = %d" %
-                         (ib, int(ib / 5), wsig, len(ob_pix_dat)))
+                         (ib, int(ib / 5), wsig, len(arc_pix_dat)))
                 xlim = [self.atminwave, self.atmaxwave]
                 pl.plot(xlim, [0., 0.], '-')
                 pl.plot(xlim, [wsig, wsig], '-.', color='gray')
@@ -1666,28 +1701,35 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 pl.ylabel("Flux")
                 pl.title(self.frame.plotlabel() +
                          " Bar = %03d, Slice = %02d, RMS = %.3f, N = %d" %
-                         (ib, int(ib/5), wsig, len(ob_pix_dat)))
+                         (ib, int(ib/5), wsig, len(arc_pix_dat)))
                 leg_first = True
                 for w in self.at_wave:
                     if leg_first:
                         pl.plot([w, w], ylim, 'k-.', label='Orig')
                         leg_first = False
                     else:
-                        pl.plot([w, w], ylim, 'c-.')
+                        pl.plot([w, w], ylim, 'k-.')
                 leg_first = True
-                for w in at_wave_fit:
+                for w in arc_wave_fit:
                     if leg_first:
                         pl.plot([w, w], ylim, 'c-.', label='Kept')
                         leg_first = False
                     else:
                         pl.plot([w, w], ylim, 'c-.')
                 leg_first = True
-                for w in rej_wave:
+                for w in rej_rsd_wave:
                     if leg_first:
-                        pl.plot([w, w], ylim, 'r-.', label='Rej')
+                        pl.plot([w, w], ylim, 'r-.', label='RejRsd')
                         leg_first = False
                     else:
                         pl.plot([w, w], ylim, 'r-.')
+                leg_first = True
+                for w in rej_wave:
+                    if leg_first:
+                        pl.plot([w, w], ylim, 'y-.', label='RejFit')
+                        leg_first = False
+                    else:
+                        pl.plot([w, w], ylim, 'y-.')
                 pl.legend()
                 q = input("Next? <cr>, q - quit: ")
                 if 'Q' in q.upper():
