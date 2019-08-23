@@ -180,6 +180,11 @@ def get_line_window(y, c, thresh=0., verbose=False):
         prev = y[x1]
         x1 += 1
         count += 1
+    # where did we end up?
+    if c < x0 or x1 < c:
+        if verbose:
+            print("initial position outside final window")
+        return None, None, 0
 
     return x0, x1, count
 
@@ -222,17 +227,22 @@ def findpeaks(x, y, wid, sth, ath, pkg=None, verbose=False):
                                     print(i, t, x[i], res[1], x[t])
                             else:
                                 pks.append(res[1])
-                                sgs.append(res[2])
+                                sgs.append(abs(res[2]))
                         except RuntimeError:
                             continue
     # clean by sigmas
     cpks = []
+    sgmd = None
     if len(pks) > 0:
-        cln_sgs, low, upp = sigmaclip(sgs, low=3., high=3)
+        cln_sgs, low, upp = sigmaclip(sgs, low=3., high=3.)
         for i in range(len(pks)):
             if low < sgs[i] < upp:
                 cpks.append(pks[i])
-    return cpks, cln_sgs.mean()
+        # sgmn = cln_sgs.mean()
+        sgmd = np.nanmedian(cln_sgs)
+    else:
+        print("No peaks found!")
+    return cpks, sgmd
 
 
 class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
@@ -1324,14 +1334,16 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # find good peaks in arc spectrum
         smooth_width = 4                                            # in pixels
         ampl_thresh = 0.
-        slope_thresh = 0.7 * smooth_width / 2. / 100.   # more severe for arc
+        # slope_thresh = 0.7 * smooth_width / 1000.   # more severe for arc
         # for fitting peaks
-        peak_width = int(self.frame.resolution() /
-                         abs(twkcoeff[self.REFBAR][3]))    # in pixels
+        peak_width = int(self.frame.resolution() / self.refdisp)    # in pixels
         if peak_width < 4:
             peak_width = 4
-        self.log.info("Using a peak_width of %d px" % peak_width)
-        init_cent, avwsg = findpeaks(subwvals, subyvals, smooth_width,
+        slope_thresh = peak_width / 12000.
+        self.log.info("Using a peak_width of %d px, a slope_thresh of %.3f "
+                      "a smooth_width of %d and an ampl_thresh of %.3f" %
+                      (peak_width, slope_thresh, smooth_width, ampl_thresh))
+        init_cent, avwsg = findpeaks(atwave, atspec, smooth_width,
                                      slope_thresh, ampl_thresh, peak_width)
         avwfwhm = avwsg * 2.354
         self.log.info("Found %d peaks with <sig> = %.3f (A), <FWHM> = %.3f (A)"
@@ -1339,26 +1351,33 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         if 'BH' in self.frame.grating() or 'BM' in self.frame.grating():
             fwid = avwfwhm
         else:
-            fwid = avwsg
+            fwid = avwfwhm
         # clean near neighbors
         diffs = np.diff(init_cent)
         spec_cent = []
+        rej_neigh_w = []
         for i, w in enumerate(init_cent):
-            if i == 0 or i == len(diffs):
-                continue
-            if diffs[i-1] < avwfwhm * 1.5 or diffs[i] < avwfwhm * 1.5:
-                continue
+            if i == 0:
+                if diffs[i] < avwfwhm * 1.5:
+                    rej_neigh_w.append(w)
+                    continue
+            elif i == len(diffs):
+                if diffs[i-1] < avwfwhm * 1.5:
+                    rej_neigh_w.append(w)
+                    continue
+            else:
+                if diffs[i-1] < avwfwhm * 1.5 or diffs[i] < avwfwhm * 1.5:
+                    rej_neigh_w.append(w)
+                    continue
             spec_cent.append(w)
         self.log.info("Found %d isolated peaks" % len(spec_cent))
         #
         # generate an atlas line list
-        refxs = []
         refws = []
-        refwd = []
-        refof = []
         refas = []
-        rej_refws = []
-        rej_refas = []
+        rej_fit_w = []
+        rej_par_w = []
+        rej_par_a = []
         nrej = 0
         for i, pk in enumerate(spec_cent):
 
@@ -1366,6 +1385,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             line_x = [i for i, v in enumerate(atwave) if v >= pk][0]
             minow, maxow, count = get_line_window(atspec, line_x)
             if count < 5 or not minow or not maxow:
+                rej_fit_w.append(pk)
                 nrej += 1
                 self.log.info("Atlas window rejected for line %.3f" % pk)
                 continue
@@ -1374,84 +1394,35 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             try:
                 fit, _ = curve_fit(gaus, xvec, yvec, p0=[100., pk, 1.])
             except RuntimeError:
+                rej_fit_w.append(pk)
                 nrej += 1
                 self.log.info("Atlas Gaussian fit rejected for line %.3f" % pk)
                 continue
-            pka = yvec.argmax()
-            xoff = abs(xvec[pka] - fit[1]) / self.refdisp
-            woff = abs(pk - fit[1])
+            int_line = interpolate.interp1d(xvec, yvec, kind='cubic',
+                                            bounds_error=False,
+                                            fill_value='extrapolate')
+            x_dense = np.linspace(min(xvec), max(xvec), num=1000)
+            # get peak value
+            y_dense = int_line(x_dense)
+            pki = y_dense.argmax()
+            pkw = x_dense[pki]
+            # pka = yvec.argmax()
+            xoff = abs(pkw - fit[1]) / self.refdisp     # in pixels
+            woff = abs(pkw - pk)                        # in Angstroms
             wrat = fit[2] / fwid
-            if woff > 5. or xoff > 1.5 or wrat > 1.1:
+            if woff > 5. or xoff > 1.5 or abs(wrat) > 1.1:
+                rej_par_w.append(pkw)
+                rej_par_a.append(y_dense[pki])
                 nrej += 1
                 self.log.info("Atlas line parameters rejected for line %.3f" %
                               pk)
+                self.log.info("woff = %.3f, xoff = %.2f, wrat = %.3f" %
+                              (woff, xoff, wrat))
                 continue
-            at_pk_wl = fit[1]
-            at_pk_amp = fit[0]
-
-            # Fit Arc Peak
-            line_x = [i for i, v in enumerate(subwvals) if v >= pk][0]
-            minow, maxow, count = get_line_window(subyvals, line_x)
-            if count < 5 or not minow or not maxow:
-                nrej += 1
-                self.log.info("Arc window rejected for line %.3f" % pk)
-                continue
-            yvec = subyvals[minow:maxow + 1]
-            xvec = subxvals[minow:maxow + 1]
-            try:
-                fit, _ = curve_fit(gaus, xvec, yvec, p0=[100., line_x, 1.])
-            except RuntimeError:
-                nrej += 1
-                self.log.info("Arc Gaussian fit rejected for line %.3f" % pk)
-                continue
-            xrat = fit[2] / (avwsg / abs(twkcoeff[self.REFBAR][3]))
-            if xrat > 1.25 or fit[2] > count:
-                nrej += 1
-                self.log.info("Arc line parameters rejected for line %.3f" % pk)
-                continue
-            sp_pk_x = fit[1]
-            refxs.append(sp_pk_x)
-            refws.append(at_pk_wl)
-            refas.append(at_pk_amp)
-            refwd.append(wrat)
-            refof.append(woff)
-
-        # Preliminary fit
-        newcoeff = np.polyfit(refxs, refws, 4)
-        wfunc = np.poly1d(newcoeff)
-        fitw = wfunc(refxs)
-        # get residual stats
-        diff = refws - fitw
-        diff_clean, low, upp = sigmaclip(diff, low=3., high=3.)
-        refxs_c = []
-        refws_c = []
-        refwd_c = []
-        refof_c = []
-        refas_c = []
-        # clean outliers
-        for i, d in enumerate(diff):
-            if low < d < upp:
-                refxs_c.append(refxs[i])
-                refws_c.append(refws[i])
-                refwd_c.append(refwd[i])
-                refof_c.append(refof[i])
-                refas_c.append(refas[i])
-            else:
-                rej_refws.append(refws[i])
-                rej_refas.append(refas[i])
-        # fit cleaned data
-        newcoeff = np.polyfit(refxs_c, refws_c, 4)
-        wfunc = np.poly1d(newcoeff)
-        fitw = wfunc(refxs_c)
-        diff = refws_c - fitw
-        # final statistics
-        diff -= np.mean(diff)       # account for zero-point shift
-        sigmas_ref = np.std(diff)
-        self.log.info("Final atlas list of %d lines with <std> = %.3f A "
-                      "after rejecting %d lines" %
-                      (len(refws_c), sigmas_ref, len(rej_refws)))
+            refws.append(pkw)
+            refas.append(y_dense[pki])
         # store wavelengths
-        self.at_wave = refws_c
+        self.at_wave = refws
         # plot results
         if self.frame.inter() >= 2:
             pl.ion()
@@ -1464,14 +1435,48 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         ylim = pl.gca().get_ylim()
         pl.plot(atwave, atspec / norm_fac, label='Atlas')
         pl.xlim(xlim)
-        for iw, w in enumerate(self.at_wave):
-            pl.plot([w, w], [refas_c[iw], refas_c[iw]] / norm_fac, 'kd')
-        for iw, w in enumerate(rej_refws):
-            pl.plot([w, w], [rej_refas[iw], rej_refas[iw]] / norm_fac, 'rd')
+        # Initial findpeaks list
+        plot_first = True
         for iw, w in enumerate(init_cent):
-            pl.plot([w, w], ylim, 'c--')
-        for iw, w in enumerate(spec_cent):
-            pl.plot([w, w], ylim, 'g--')
+            if plot_first:
+                pl.plot([w, w], ylim, 'c--', label='Fpks')
+                plot_first = False
+            else:
+                pl.plot([w, w], ylim, 'c--')
+        # Nearby Neighbor rejections
+        plot_first = True
+        for iw, w in enumerate(rej_neigh_w):
+            if plot_first:
+                pl.plot([w, w], ylim, 'r--', label='NeighRej')
+                plot_first = False
+            else:
+                pl.plot([w, w], ylim, 'r--')
+        # Fit failure rejections
+        plot_first = True
+        for iw, w in enumerate(rej_fit_w):
+            if plot_first:
+                pl.plot([w, w], ylim, 'm-.', label='FitRej')
+                plot_first = False
+            else:
+                pl.plot([w, w], ylim, 'm-.')
+        # Line Parameter rejections
+        plot_first = True
+        for iw, w in enumerate(rej_par_w):
+            if plot_first:
+                pl.plot([w, w], [rej_par_a[iw], rej_par_a[iw]] / norm_fac, 'rd',
+                        label='ParRej')
+                plot_first = False
+            else:
+                pl.plot([w, w], [rej_par_a[iw], rej_par_a[iw]] / norm_fac, 'rd')
+        # Final Kept list
+        plot_first = True
+        for iw, w in enumerate(self.at_wave):
+            if plot_first:
+                pl.plot([w, w], [refas[iw], refas[iw]] / norm_fac, 'kd',
+                        label='Kept')
+                plot_first = False
+            else:
+                pl.plot([w, w], [refas[iw], refas[iw]] / norm_fac, 'kd')
         pl.xlabel("Wavelength (A)")
         pl.ylabel("Flux (e-)")
         pl.title(self.frame.plotlabel() + " Ngood = %d, Nrej = %d" %
@@ -1480,6 +1485,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         pl.savefig("atlas_lines_%s_%s_%s_%05d.png" %
                    (self.frame.illum(), self.frame.grating(),
                     self.frame.ifuname(), self.frame.header['FRAMENO']))
+        self.log.info("Final atlas list has %d lines" % len(self.at_wave))
         if self.frame.inter() >= 2:
             input("Next? <cr>: ")
         else:
@@ -1496,6 +1502,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.ion()
         else:
             do_inter = False
+        verbose = False
         # set thresh
         hgt = 50.
         self.log.info("line thresh = %.2f" % hgt)
@@ -1520,8 +1527,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 else:
                     win = boxcar(3)
                 bspec = sp.signal.convolve(b, win, mode='same') / sum(win)
-            spmode = mode(np.round(bspec))
-            spmed = np.nanmedian(bspec)
+            # spmode = mode(np.round(bspec))
+            # spmed = np.nanmedian(bspec)
             # self.log.info("Arc spec median = %.3f, mode = %d" %
             #              (spmed, spmode.mode[0]))
             # store values to fit
@@ -1539,12 +1546,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     if count < 5 or not minow or not maxow:
                         rej_wave.append(aw)
                         nrej += 1
-                        self.log.info("Arc window rejected for line %.3f" % aw)
+                        if verbose:
+                            self.log.info("Arc window rejected for line %.3f" % aw)
                         continue
                     if minow > line_x > maxow:
                         rej_wave.append(aw)
                         nrej += 1
-                        self.log.info("Arc window wandered off for line %.3f"
+                        if verbose:
+                            self.log.info("Arc window wandered off for line %.3f"
                                       % aw)
                         continue
                     yvec = bspec[minow:maxow+1]
@@ -1556,8 +1565,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                                            p0=[100., line_x, 1.])
                     except RuntimeError:
                         nrej += 1
-                        self.log.info(
-                            "Arc Gaussian fit rejected for line %.3f" % aw)
+                        if verbose:
+                            self.log.info(
+                                "Arc Gaussian fit rejected for line %.3f" % aw)
                         continue
                     sp_pk_x = fit[1]
                     # Get interpolation
@@ -1574,8 +1584,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     if abs(cent - peak) > 0.7:
                         rej_wave.append(aw)
                         nrej += 1
-                        self.log.info("Arc peak - cent offset rejected for "
-                                      "line %.3f" % aw)
+                        if verbose:
+                            self.log.info("Arc peak - cent offset rejected for "
+                                          "line %.3f" % aw)
                         continue
                     # store data
                     arc_pix_dat.append(peak)
@@ -1607,12 +1618,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                             do_inter = False
                             pl.ioff()
                 except IndexError:
-                    self.log.info("Atlas line not in observation: %.2f" % aw)
+                    if verbose:
+                        self.log.info("Atlas line not in observation: %.2f" % aw)
                     rej_wave.append(aw)
                     nrej += 1
                     continue
                 except ValueError:
-                    self.log.info("Interpolation error for line at %.2f" % aw)
+                    if verbose:
+                        self.log.info("Interpolation error for line at %.2f" % aw)
                     rej_wave.append(aw)
                     nrej += 1
             self.log.info("Fitting wavelength solution starting with %d "
