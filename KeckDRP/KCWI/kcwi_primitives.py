@@ -1339,8 +1339,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         peak_width = int(self.frame.resolution() / self.refdisp)    # in pixels
         if peak_width < 4:
             peak_width = 4
-        slope_thresh = peak_width / 12000.
-        self.log.info("Using a peak_width of %d px, a slope_thresh of %.3f "
+        # slope_thresh = peak_width / 12000.
+        slope_thresh = 0.016 / peak_width
+        self.log.info("Using a peak_width of %d px, a slope_thresh of %.5f "
                       "a smooth_width of %d and an ampl_thresh of %.3f" %
                       (peak_width, slope_thresh, smooth_width, ampl_thresh))
         init_cent, avwsg = findpeaks(atwave, atspec, smooth_width,
@@ -1356,17 +1357,19 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         diffs = np.diff(init_cent)
         spec_cent = []
         rej_neigh_w = []
+        neigh_fact = 1.25
         for i, w in enumerate(init_cent):
             if i == 0:
-                if diffs[i] < avwfwhm * 1.5:
+                if diffs[i] < avwfwhm * neigh_fact:
                     rej_neigh_w.append(w)
                     continue
             elif i == len(diffs):
-                if diffs[i-1] < avwfwhm * 1.5:
+                if diffs[i-1] < avwfwhm * neigh_fact:
                     rej_neigh_w.append(w)
                     continue
             else:
-                if diffs[i-1] < avwfwhm * 1.5 or diffs[i] < avwfwhm * 1.5:
+                if diffs[i-1] < avwfwhm * neigh_fact or \
+                        diffs[i] < avwfwhm * neigh_fact:
                     rej_neigh_w.append(w)
                     continue
             spec_cent.append(w)
@@ -1409,8 +1412,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # pka = yvec.argmax()
             xoff = abs(pkw - fit[1]) / self.refdisp     # in pixels
             woff = abs(pkw - pk)                        # in Angstroms
-            wrat = fit[2] / fwid
-            if woff > 5. or xoff > 1.5 or abs(wrat) > 1.1:
+            wrat = abs(fit[2]) / fwid                   # can be neg or pos
+            if woff > 1. or xoff > 1. or wrat > 1.1:
                 rej_par_w.append(pkw)
                 rej_par_a.append(y_dense[pki])
                 nrej += 1
@@ -1506,6 +1509,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # set thresh
         hgt = 50.
         self.log.info("line thresh = %.2f" % hgt)
+        # get relevant part of atlas spectrum
+        atwave = self.refwave[self.atminrow:self.atmaxrow]
+        atspec = self.reflux[self.atminrow:self.atmaxrow]
         # store fit stats
         bar_sig = []
         bar_nls = []
@@ -1547,17 +1553,20 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         rej_wave.append(aw)
                         nrej += 1
                         if verbose:
-                            self.log.info("Arc window rejected for line %.3f" % aw)
+                            self.log.info("Arc window rejected for line %.3f"
+                                          % aw)
                         continue
+                    # check if window no longer contains initial value
                     if minow > line_x > maxow:
                         rej_wave.append(aw)
                         nrej += 1
                         if verbose:
-                            self.log.info("Arc window wandered off for line %.3f"
-                                      % aw)
+                            self.log.info(
+                                "Arc window wandered off for line %.3f" % aw)
                         continue
                     yvec = bspec[minow:maxow+1]
                     xvec = xvals[minow:maxow+1]
+                    wvec = bw[minow:maxow+1]
                     max_value = yvec[yvec.argmax()]
                     # Gaussian fit
                     try:
@@ -1593,6 +1602,26 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     at_wave_dat.append(aw)
                     # plot, if requested
                     if do_inter:
+                        ptitle = "Bar: %d - %3d/%3d: x0, x1, Cent, Wave = " \
+                                 "%d, %d, %8.1f, %9.2f" % \
+                                 (ib, (iw + 1), len(self.at_wave),
+                                  minow, maxow, cent, aw)
+                        atx0 = [i for i, v in enumerate(atwave) if v >= min(wvec)][0]
+                        atx1 = [i for i, v in enumerate(atwave) if v >= max(wvec)][0]
+                        atnorm = np.nanmax(yvec) / np.nanmax(atspec[atx0:atx1])
+                        pl.clf()
+                        pl.plot(wvec, yvec, 'k--', label='Arc')
+                        pl.plot(wvec, yvec, 'r.')
+                        ylim = [0, pl.gca().get_ylim()[1]]
+                        pl.plot(atwave[atx0:atx1], atspec[atx0:atx1] * atnorm,
+                                'g-.', label='Atlas')
+                        pl.plot([aw, aw], ylim, 'r-.', label='W in')
+                        pl.xlabel("Wavelength (A)")
+                        pl.ylabel("Relative Flux")
+                        pl.ylim(ylim)
+                        pl.title(ptitle)
+                        pl.legend()
+                        input("next - <cr>: ")
                         pl.clf()
                         pl.plot(xvec, yvec, 'r.', label='Data')
                         pl.plot(xplot, plt_line, label='Interp')
@@ -1606,10 +1635,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         pl.xlabel("CCD Y (px)")
                         pl.ylabel("Flux (DN)")
                         pl.ylim(ylim)
-                        ptitle = "Bar: %d - %3d/%3d: x0, x1, Cent, Wave = " \
-                                 "%d, %d, %8.1f, %9.2f" % \
-                                 (ib, (iw + 1), len(self.at_wave),
-                                  minow, maxow, cent, aw)
                         pl.title(ptitle)
                         pl.legend()
 
@@ -1702,8 +1727,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 bwav = pwfit(xvals)
                 pl.plot(bwav, b, label='Arc')
                 ylim = pl.gca().get_ylim()
-                atwave = self.refwave[self.atminrow:self.atmaxrow]
-                atspec = self.reflux[self.atminrow:self.atmaxrow]
                 atnorm = np.nanmax(b) / np.nanmax(atspec)
                 pl.plot(atwave, atspec * atnorm, label='Atlas')
                 pl.plot([self.frame.cwave(), self.frame.cwave()], ylim, 'm-.',
