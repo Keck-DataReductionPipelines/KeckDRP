@@ -93,6 +93,7 @@ def pascal_shift(coef=None, x0=None):
         fincoeff = fincoeff[0:len(coef)]
     # Reverse for python
     return list(reversed(fincoeff))
+    # END: pascal_shfit()
 
 
 def gaus(x, a, mu, sigma):
@@ -187,6 +188,7 @@ def get_line_window(y, c, thresh=0., verbose=False):
         return None, None, 0
 
     return x0, x1, count
+    # END: get_line_window()
 
 
 def findpeaks(x, y, wid, sth, ath, pkg=None, verbose=False):
@@ -243,6 +245,7 @@ def findpeaks(x, y, wid, sth, ath, pkg=None, verbose=False):
     else:
         print("No peaks found!")
     return cpks, sgmd
+    # END: findpeaks()
 
 
 class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
@@ -256,12 +259,19 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.FCAM = 305.0   # focal length of camera in mm
         self.GAMMA = 4.0    # mean out-of-plane angle for diffraction (deg)
 
+        # create_unc() variables
+        self.readnoise = None       # readnoise (e-)
+        # trace_bars() variables
         self.midrow = None          # middle row
         self.midcntr = None         # middle centroids
         self.win = None             # sample window
+        # extract_arcs() variables
         self.arcs = None            # extracted arcs
+        # arc_offsets() variables
         self.baroffs = None         # pixel offsets relative to ref bar
+        # calc_prelim_disp() variables
         self.prelim_disp = None     # calculated dispersion
+        # read_atlas() variables
         self.xvals = None           # pixel values centered on the middle
         self.x0 = None              # middle pixel
         self.reflux = None          # Atlas spectrum
@@ -271,16 +281,21 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.maxrow = None          # Upper limit for central fit (px)
         self.offset_wave = None     # atlas-arc offset in Angstroms
         self.offset_pix = None      # atlas-arc offset in pixels
-        self.centcoeff = []         # Coeffs for central fit of each bar
-        self.twkcoeff = []          # Coeffs pascal shifted
-        self.fincoeff = []          # Final wavelength solution coeffs
-        self.readnoise = None       # readnoise (e-)
         self.atrespix = None        # atlas matched resolution in atlas px
+        # fit_center() variables
+        self.centcoeff = []         # Coeffs for central fit of each bar
+        # get_atlas_lines() variables
+        self.twkcoeff = None        # Coeffs pascal shifted
         self.atminrow = None        # atlas minimum row
         self.atmaxrow = None        # atlas maximum row
         self.atminwave = None       # atlas minimum wavelength (A)
         self.atmaxwave = None       # atlas maximum wavelength (A)
         self.at_wave = None         # atlas wavelength list
+        # solve_arcs() variables
+        self.fincoeff = []          # Final wavelength solution coeffs
+        self.bar_sig = []           # Final sigma of bar wavelength fit
+        self.bar_nls = []           # Final number of lines used for fit
+        # solve_geom() variables
         self.arc_xpos = None        # arc ref bar line x position list
         self.arc_wave = None        # arc ref var line wavelength list
         super(KcwiPrimitives, self).__init__()
@@ -469,6 +484,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.log.info("master flat produced")
         else:
             self.log.info("fit_flat")
+    # END: fit_flat()
 
     def bias_readnoise(self, tab=None, in_directory=None):
         if tab is not None:
@@ -523,6 +539,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         input("Next? <cr>: ")
                     else:
                         pl.pause(self.frame.plotpause())
+    # END: bias_readnoise()
 
     def stack_biases(self):
 
@@ -646,6 +663,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                  self.subtract_scattered_light.__qualname__
         self.frame.header['HISTORY'] = logstr
         self.log.info(self.subtract_scattered_light.__qualname__)
+    # END: subtract_scattered_light
 
     def find_bars(self):
         self.log.info("Finding continuum bars")
@@ -705,6 +723,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.midcntr = midcntr
         self.midrow = midy
         self.win = win
+    # END: find_bars()
 
     def trace_bars(self):
         self.log.info("Tracing continuum bars")
@@ -813,6 +832,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 self.frame.data = warped
                 self.write_image(suffix='warped')
                 self.log.info("Transformed bars produced")
+    # END: trace_bars()
 
     def extract_arcs(self):
         self.log.info("Extracting arc spectra")
@@ -856,6 +876,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         else:
             self.log.error("Did not extract %d arcs, extracted %d" %
                            (self.NBARS, len(arcs)))
+    # END: extract_arcs()
 
     def arc_offsets(self):
         self.log.info("Finding inter-bar offsets")
@@ -920,6 +941,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     pl.pause(self.frame.plotpause())
         else:
             self.log.error("No extracted arcs found")
+    # END: arc_offsets()
 
     def calc_prelim_disp(self):
         # get binning
@@ -1076,6 +1098,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # Store x values
         self.xvals = xvals
         self.x0 = int(len(obsarc)/2)
+    # END: read_atlas()
 
     def fit_center(self):
         """ Fit central region
@@ -1282,6 +1305,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 input("Next? <cr>: ")
             else:
                 pl.pause(self.frame.plotpause())
+    # END: fit_center()
 
     def get_atlas_lines(self):
         """Get relevant atlas line positions and wavelengths"""
@@ -1493,6 +1517,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             input("Next? <cr>: ")
         else:
             pl.pause(self.frame.plotpause())
+    # END: get_atlas_lines()
 
     def solve_arcs(self):
         """Solve the bar arc wavelengths"""
@@ -1506,15 +1531,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         else:
             do_inter = False
         verbose = False
-        # set thresh
+        # set thresh for finding lines
         hgt = 50.
         self.log.info("line thresh = %.2f" % hgt)
         # get relevant part of atlas spectrum
         atwave = self.refwave[self.atminrow:self.atmaxrow]
         atspec = self.reflux[self.atminrow:self.atmaxrow]
-        # store fit stats
-        bar_sig = []
-        bar_nls = []
         # loop over bars
         for ib, b in enumerate(self.arcs):
             # print("")
@@ -1696,8 +1718,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                           (ib, int(ib / 5), wsig, len(arc_pix_dat)))
             # print("")
             self.fincoeff.append(wfit)
-            bar_sig.append(wsig)
-            bar_nls.append(len(arc_pix_dat))
+            self.bar_sig.append(wsig)
+            self.bar_nls.append(len(arc_pix_dat))
             # plot bar fit residuals
             if master_inter:
                 pl.ion()
@@ -1778,11 +1800,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.ioff()
         # Plot fit sigmas
         pl.clf()
-        pl.plot(bar_sig, 'd', label='RMS')
+        pl.plot(self.bar_sig, 'd', label='RMS')
         xlim = [-1, 120]
         ylim = pl.gca().get_ylim()
-        av_bar_sig = np.nanmean(bar_sig)
-        st_bar_sig = np.nanstd(bar_sig)
+        av_bar_sig = np.nanmean(self.bar_sig)[0]
+        st_bar_sig = np.nanstd(self.bar_sig)[0]
         self.log.info("<STD>     = %.3f +- %.3f (A)" % (av_bar_sig, st_bar_sig))
         pl.plot(xlim, [av_bar_sig, av_bar_sig], 'k--')
         pl.plot(xlim, [(av_bar_sig-st_bar_sig), (av_bar_sig-st_bar_sig)], 'k:')
@@ -1805,10 +1827,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.pause(self.frame.plotpause())
         # Plot number of lines fit
         pl.clf()
-        pl.plot(bar_nls, 'd', label='N lines')
+        pl.plot(self.bar_nls, 'd', label='N lines')
         ylim = pl.gca().get_ylim()
-        av_bar_nls = np.nanmean(bar_nls)
-        st_bar_nls = np.nanstd(bar_nls)
+        av_bar_nls = np.nanmean(self.bar_nls)[0]
+        st_bar_nls = np.nanstd(self.bar_nls)[0]
         self.log.info("<N Lines> = %.1f +- %.1f" % (av_bar_nls, st_bar_nls))
         pl.plot(xlim, [av_bar_nls, av_bar_nls], 'k--')
         pl.plot(xlim, [(av_bar_nls-st_bar_nls), (av_bar_nls-st_bar_nls)], 'k:')
@@ -1853,6 +1875,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 input("Next? <cr>: ")
             else:
                 pl.pause(self.frame.plotpause())
+    # END: solve_arcs()
 
     def solve_geom(self):
         self.log.info("solve_geom")
