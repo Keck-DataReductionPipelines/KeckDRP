@@ -241,7 +241,7 @@ def findpeaks(x, y, wid, sth, ath, pkg=None, verbose=False):
             if low < sgs[i] < upp:
                 cpks.append(pks[i])
         # sgmn = cln_sgs.mean()
-        sgmd = np.nanmedian(cln_sgs)
+        sgmd = float(np.nanmedian(cln_sgs))
     else:
         print("No peaks found!")
     return cpks, sgmd
@@ -285,7 +285,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # fit_center() variables
         self.centcoeff = []         # Coeffs for central fit of each bar
         # get_atlas_lines() variables
-        self.twkcoeff = None        # Coeffs pascal shifted
+        self.twkcoeff = []          # Coeffs pascal shifted
         self.atminrow = None        # atlas minimum row
         self.atmaxrow = None        # atlas maximum row
         self.atminwave = None       # atlas minimum wavelength (A)
@@ -295,6 +295,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.fincoeff = []          # Final wavelength solution coeffs
         self.bar_sig = []           # Final sigma of bar wavelength fit
         self.bar_nls = []           # Final number of lines used for fit
+        self.xsvals = None          # pixels values starting at zero
         # solve_geom() variables
         self.arc_xpos = None        # arc ref bar line x position list
         self.arc_wave = None        # arc ref var line wavelength list
@@ -1244,6 +1245,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             centdisp.append(coeff[3])
             # Store results
             self.centcoeff.append(coeff)
+            self.twkcoeff.append(scoeff)
 
             if self.frame.inter() >= 1:
                 # plot maxima
@@ -1254,7 +1256,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 pl.plot([bardisp[-1], bardisp[-1]], ylim, 'g--',
                         label='Peak Disp')
                 pl.plot([self.prelim_disp, self.prelim_disp], ylim, 'r-.',
-                        label='Init Disp')
+                        label='Calc Disp')
                 pl.xlabel("Central Dispersion (Ang/px)")
                 pl.ylabel("X-Corr Peak Value")
                 pl.title(self.frame.plotlabel() +
@@ -1274,33 +1276,46 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 pl.ion()
             else:
                 pl.ioff()
+            # Get central wavelength
+            cwave = self.frame.cwave()
             # Plot results
             pl.clf()
-            pl.plot(centwave, 'h')
+            pl.plot(centwave, 'h', label="Data")
             ylim = pl.gca().get_ylim()
             for ix in range(1, 24):
                 sx = ix*5 - 0.5
-                pl.plot([sx, sx], ylim, '-.', color='black')
+                if ix == 1:
+                    pl.plot([sx, sx], ylim, '-.', color='black', label="Slices")
+                else:
+                    pl.plot([sx, sx], ylim, '-.', color='black')
             pl.xlim([-1, 120])
+            pl.plot([-1, 120], [cwave, cwave], 'g-.', label="CWAVE")
             pl.gca().margins(0)
             pl.xlabel("Bar #")
             pl.ylabel("Central Wavelength (A)")
             pl.title(self.frame.plotlabel())
+            pl.legend()
             if self.frame.inter() >= 2:
                 input("Next? <cr>: ")
             else:
                 pl.pause(self.frame.plotpause())
             pl.clf()
-            pl.plot(centdisp, 'h')
+            pl.plot(centdisp, 'h', label="Data")
             ylim = pl.gca().get_ylim()
             for ix in range(1, 24):
                 sx = ix * 5 - 0.5
-                pl.plot([sx, sx], ylim, '-.', color='black')
+                if ix == 1:
+                    pl.plot([sx, sx], ylim, '-.', color='black', label="Slices")
+                else:
+                    pl.plot([sx, sx], ylim, '-.', color='black')
             pl.xlim([-1, 120])
+            pl.plot([-1, 120], [self.prelim_disp, self.prelim_disp], 'r-.',
+                    label='Calc Disp')
             pl.gca().margins(0)
             pl.xlabel("Bar #")
             pl.ylabel("Central Dispersion (A/px)")
             pl.title(self.frame.plotlabel())
+            pl.legend()
             if self.frame.inter() >= 2:
                 input("Next? <cr>: ")
             else:
@@ -1326,14 +1341,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # wavelength range
         mnwvs = []
         mxwvs = []
-        # pascal shift coeffs
-        twkcoeff = []
+        # Get wavelengths
         for b in range(self.NBARS):
-            twkcoeff.append(pascal_shift(self.centcoeff[b], self.x0))
-            waves = np.polyval(twkcoeff[-1], xvals)
+            waves = np.polyval(self.twkcoeff[b], xvals)
             mnwvs.append(np.min(waves))
             mxwvs.append(np.max(waves))
-        self.twkcoeff = twkcoeff
         minwav = min(mnwvs) + 10.
         maxwav = max(mxwvs) - 10.
         # Get corresponding atlas range
@@ -1351,7 +1363,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # get reference bar spectrum
         subxvals = xvals[minrow:maxrow]
         subyvals = self.arcs[self.REFBAR][minrow:maxrow].copy()
-        subwvals = np.polyval(twkcoeff[self.REFBAR], subxvals)
+        subwvals = np.polyval(self.twkcoeff[self.REFBAR], subxvals)
         # smooth subyvals
         win = boxcar(3)
         subyvals = sp.signal.convolve(subyvals, win, mode='same') / sum(win)
@@ -1537,15 +1549,17 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # get relevant part of atlas spectrum
         atwave = self.refwave[self.atminrow:self.atmaxrow]
         atspec = self.reflux[self.atminrow:self.atmaxrow]
-        # loop over bars
+        # get x values starting at zero pixels
+        self.xsvals = np.arange(0, len(self.arcs[self.REFBAR]))
+        # loop over arcs and generate a wavelength solution for each
         for ib, b in enumerate(self.arcs):
             # print("")
             # self.log.info("BAR %d" % ib)
             # print("")
+            # Starting pascal shifted coeffs from fit_center()
             coeff = self.twkcoeff[ib]
-            # get pixel values
-            xvals = np.arange(0, len(b))
-            bw = np.polyval(coeff, xvals)
+            # get bar wavelengths
+            bw = np.polyval(coeff, self.xsvals)
             # smooth spectrum according to slicer
             if 'Small' in self.frame.ifuname():
                 bspec = b
@@ -1587,7 +1601,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                                 "Arc window wandered off for line %.3f" % aw)
                         continue
                     yvec = bspec[minow:maxow+1]
-                    xvec = xvals[minow:maxow+1]
+                    xvec = self.xsvals[minow:maxow+1]
                     wvec = bw[minow:maxow+1]
                     max_value = yvec[yvec.argmax()]
                     # Gaussian fit
@@ -1746,7 +1760,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
 
                 # overplot atlas and bar using fit wavelengths
                 pl.clf()
-                bwav = pwfit(xvals)
+                bwav = pwfit(self.xsvals)
                 pl.plot(bwav, b, label='Arc')
                 ylim = pl.gca().get_ylim()
                 atnorm = np.nanmax(b) / np.nanmax(atspec)
@@ -1803,8 +1817,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         pl.plot(self.bar_sig, 'd', label='RMS')
         xlim = [-1, 120]
         ylim = pl.gca().get_ylim()
-        av_bar_sig = np.nanmean(self.bar_sig)[0]
-        st_bar_sig = np.nanstd(self.bar_sig)[0]
+        av_bar_sig = float(np.nanmean(self.bar_sig))
+        st_bar_sig = float(np.nanstd(self.bar_sig))
         self.log.info("<STD>     = %.3f +- %.3f (A)" % (av_bar_sig, st_bar_sig))
         pl.plot(xlim, [av_bar_sig, av_bar_sig], 'k--')
         pl.plot(xlim, [(av_bar_sig-st_bar_sig), (av_bar_sig-st_bar_sig)], 'k:')
@@ -1829,8 +1843,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         pl.clf()
         pl.plot(self.bar_nls, 'd', label='N lines')
         ylim = pl.gca().get_ylim()
-        av_bar_nls = np.nanmean(self.bar_nls)[0]
-        st_bar_nls = np.nanstd(self.bar_nls)[0]
+        av_bar_nls = float(np.nanmean(self.bar_nls))
+        st_bar_nls = float(np.nanstd(self.bar_nls))
         self.log.info("<N Lines> = %.1f +- %.1f" % (av_bar_nls, st_bar_nls))
         pl.plot(xlim, [av_bar_nls, av_bar_nls], 'k--')
         pl.plot(xlim, [(av_bar_nls-st_bar_nls), (av_bar_nls-st_bar_nls)], 'k:')
@@ -1878,6 +1892,40 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
     # END: solve_arcs()
 
     def solve_geom(self):
+        """Solve the overall geometry of the IFU"""
+        # Get some geometry constraints
+        goody0 = 0
+        goody1 = max(self.xsvals)
+        goodmy0 = self.frame.shufrows() + 1
+        goodmy1 = goodmy0 + self.frame.shufrows()
+        # Calculate wavelength ranges
+        y0wvs = []
+        y1wvs = []
+        ym0wvs = []
+        ym1wvs = []
+        for fcfs in self.fincoeff:
+            y0wvs.append(float(np.polyval(fcfs, goody0)))
+            y1wvs.append(float(np.polyval(fcfs, goody1)))
+            ym0wvs.append(float(np.polyval(fcfs, goodmy0)))
+            ym1wvs.append(float(np.polyval(fcfs, goodmy1)))
+        y0max = max(y0wvs)
+        y0min = min(y0wvs)
+        y1max = max(y1wvs)
+        y1min = min(y1wvs)
+        ym0max = max(ym0wvs)
+        ym0min = min(ym0wvs)
+        ym1max = max(ym1wvs)
+        ym1min = min(ym1wvs)
+        wavgood0 = min([y0max, y1max])
+        wavgood1 = max([y0min, y1min])
+        wavall0 = min([y0min, y1min])
+        wavall1 = max([y0max, y1max])
+        wavgoodm0 = min([ym0max, ym1max])
+        wavgoodm1 = max([ym0min, ym1min])
+        wavallm0 = min([ym0min, ym1min])
+        wavallm1 = max([ym0max, ym1max])
+        self.log.info("WAVE GOOD: %.2f - %.2f" % (wavgood0, wavgood1))
+        self.log.info("WAVE  ALL: %.2f - %.2f" % (wavall0, wavall1))
         self.log.info("solve_geom")
 
     def apply_flat(self):

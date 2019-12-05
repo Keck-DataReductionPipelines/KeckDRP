@@ -161,6 +161,12 @@ class KcwiCCD(CCDData):
         else:
             raise ValueError("unable to determine mask: CAMERA undefined")
 
+    def shufrows(self):
+        if 'SHUFROWS' in self.header:
+            return self.header['SHUFROWS']
+        else:
+            raise ValueError("Unable to determine shufrows: SHUFROWS undefined")
+
     def xbinsize(self):
         return int(self.header['BINNING'].split(',')[0])
 
