@@ -144,6 +144,26 @@ class KcwiCCD(CCDData):
 
         return rez
 
+    def delta_wave_out(self):
+        """Return output delta lambda in Angstroms for the given grating"""
+        # Calc delta wave out from grating
+        if 'BH' in self.grating():
+            dw = 0.125 * float(self.ybinsize())
+        elif 'RH' in self.grating():
+            dw = 0.125 * float(self.ybinsize())
+        elif 'BM' in self.grating():
+            dw = 0.25 * float(self.ybinsize())
+        elif 'RM' in self.grating():
+            dw = 0.25 * float(self.ybinsize())
+        elif 'BL' in self.grating():
+            dw = 0.5 * float(self.ybinsize())
+        elif 'RL' in self.grating():
+            dw = 0.5 * float(self.ybinsize())
+        else:
+            raise ValueError("unable to compute output delta lambda: "
+                             "grating undefined")
+        return dw
+
     def namps(self):
         return self.header['NVIDINP']
 

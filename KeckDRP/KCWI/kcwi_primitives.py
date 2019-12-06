@@ -258,6 +258,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.PIX = 0.0150   # pixel size in mm
         self.FCAM = 305.0   # focal length of camera in mm
         self.GAMMA = 4.0    # mean out-of-plane angle for diffraction (deg)
+        self.WAVEFID = 3000.    # Fiducial wavelength for wavelength bins
 
         # create_unc() variables
         self.readnoise = None       # readnoise (e-)
@@ -299,6 +300,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # solve_geom() variables
         self.arc_xpos = None        # arc ref bar line x position list
         self.arc_wave = None        # arc ref var line wavelength list
+        self.wavegood0 = None       # Minimum wave at which all slices are good
+        self.wavegood1 = None       # Maximum wave at which all slices are good
+        self.waveall0 = None        # Minimum wave at which slice data exists
+        self.waveall1 = None        # Maximum wave at which slice data exists
+        self.wavemid = None         # Middle wavelength
+        self.dwout = None           # Output dispersion
+        self.wave0out = None        # Output starting wavelength
+        self.wave1out = None        # Output ending wavelength
         super(KcwiPrimitives, self).__init__()
 
     @staticmethod
@@ -1894,38 +1903,51 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
     def solve_geom(self):
         """Solve the overall geometry of the IFU"""
         # Get some geometry constraints
-        goody0 = 0
-        goody1 = max(self.xsvals)
-        goodmy0 = self.frame.shufrows() + 1
-        goodmy1 = goodmy0 + self.frame.shufrows()
+        if self.frame.nasmask():
+            goody0 = self.frame.shufrows() + 1
+            goody1 = goody0 + self.frame.shufrows()
+        else:
+            goody0 = 0
+            goody1 = max(self.xsvals)
         # Calculate wavelength ranges
         y0wvs = []
         y1wvs = []
-        ym0wvs = []
-        ym1wvs = []
+        # Get wavelength extremes for each bar
         for fcfs in self.fincoeff:
             y0wvs.append(float(np.polyval(fcfs, goody0)))
             y1wvs.append(float(np.polyval(fcfs, goody1)))
-            ym0wvs.append(float(np.polyval(fcfs, goodmy0)))
-            ym1wvs.append(float(np.polyval(fcfs, goodmy1)))
+        # Now get ensemble extremes
         y0max = max(y0wvs)
         y0min = min(y0wvs)
         y1max = max(y1wvs)
         y1min = min(y1wvs)
-        ym0max = max(ym0wvs)
-        ym0min = min(ym0wvs)
-        ym1max = max(ym1wvs)
-        ym1min = min(ym1wvs)
-        wavgood0 = min([y0max, y1max])
-        wavgood1 = max([y0min, y1min])
-        wavall0 = min([y0min, y1min])
-        wavall1 = max([y0max, y1max])
-        wavgoodm0 = min([ym0max, ym1max])
-        wavgoodm1 = max([ym0min, ym1min])
-        wavallm0 = min([ym0min, ym1min])
-        wavallm1 = max([ym0max, ym1max])
-        self.log.info("WAVE GOOD: %.2f - %.2f" % (wavgood0, wavgood1))
-        self.log.info("WAVE  ALL: %.2f - %.2f" % (wavall0, wavall1))
+        # Cube trimming wavelengths
+        trimw0 = y0min
+        trimw1 = y1max
+        # Check for negative dispersion
+        if trimw0 > trimw1:
+            trimw0 = y1min
+            trimw1 = y0max
+        # Calculate output wavelengths
+        self.dwout = self.frame.delta_wave_out()
+        ndels = int((trimw0 - self.WAVEFID)/self.dwout)
+        self.wave0out = self.WAVEFID + float(ndels) * self.dwout
+        ndels = int((trimw1 - self.WAVEFID) / self.dwout)
+        self.wave1out = self.WAVEFID + float(ndels) * self.dwout
+        self.log.info("WAVE RANGE: %.2f - %.2f" %
+                      (self.wave0out, self.wave1out))
+        # Calculate wavelength limits
+        self.wavegood0 = min([y0max, y1max])
+        self.wavegood1 = max([y0min, y1min])
+        self.waveall0 = min([y0min, y1min])
+        self.waveall1 = max([y0max, y1max])
+        self.wavemid = np.average([self.wavegood0, self.wavegood1,
+                                   self.waveall0, self.waveall1])
+        self.log.info("WAVE  GOOD: %.2f - %.2f" % (self.wavegood0,
+                                                   self.wavegood1))
+        self.log.info("WAVE   ALL: %.2f - %.2f" % (self.waveall0,
+                                                   self.waveall1))
+        self.log.info("WAVE   MID: %.2f" % self.wavemid)
         self.log.info("solve_geom")
 
     def apply_flat(self):
