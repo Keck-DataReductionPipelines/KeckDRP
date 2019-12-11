@@ -1986,19 +1986,17 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # Convert to output pixels
             yw = (yw - self.wave0out) / self.dwout
             srcw.append((xy[0], yw))
-        self.write_table(table=[self.src, self.dst, self.barid, self.slid, srcw],
-                         names=('src', 'dst', 'barid', 'slid', 'srcw'),
-                         suffix='geom',
-                         comment=['Source and destination fiducial wavelength points',
-                                  'Derived from KCWI continuum bars images and arcs',
-                                  'For defining spatial transformation'],
-                         keywords={
-                             'MIDROW': (self.midrow,
-                                        "Middle Row of image"),
-                             'WINDOW': (self.win, "Window for bar"),
-                             'REFDELX': (self.refdelx,
-                                         "Reference bar sep in px")
-                         })
+        self.write_table(
+            table=[self.src, self.dst, self.barid, self.slid, srcw],
+            names=('src', 'dst', 'barid', 'slid', 'srcw'),
+            suffix='geom',
+            comment=['Source and destination fiducial wavelength points',
+                     'Derived from KCWI continuum bars images and arcs',
+                     'For defining spatial transformation'],
+            keywords={'MIDROW': (self.midrow, "Middle Row of image"),
+                      'WINDOW': (self.win, "Window for bar"),
+                      'REFDELX': (self.refdelx, "Reference bar sep in px")}
+        )
         self.log.info("solve_geom")
 
     def apply_flat(self):
