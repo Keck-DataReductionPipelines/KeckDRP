@@ -262,10 +262,20 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
 
         # create_unc() variables
         self.readnoise = None       # readnoise (e-)
+        # find_bars() variables
+        self.refdelx = None         # Reference bar separation in pixels
         # trace_bars() variables
         self.midrow = None          # middle row
         self.midcntr = None         # middle centroids
+        self.xi = None
+        self.yi = None
+        self.xo = None
+        self.yo = None
         self.win = None             # sample window
+        self.src = None             # source control points
+        self.dst = None             # destination control points
+        self.barid = None           # control points bar number
+        self.slid = None            # control points slice number
         # extract_arcs() variables
         self.arcs = None            # extracted arcs
         # arc_offsets() variables
@@ -308,6 +318,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.dwout = None           # Output dispersion
         self.wave0out = None        # Output starting wavelength
         self.wave1out = None        # Output ending wavelength
+        self.refoutx = None         # Output x positions for bars in cube
         super(KcwiPrimitives, self).__init__()
 
     @staticmethod
@@ -730,9 +741,20 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 else:
                     pl.pause(self.frame.plotpause())
             self.log.info("Found middle centroids for continuum bars")
+        # store peaks
         self.midcntr = midcntr
+        # store where we got them
         self.midrow = midy
         self.win = win
+        # calculate reference delta x based on refbar
+        self.refdelx = 0.
+        for ib in range(self.REFBAR-1, self.REFBAR+3):
+            self.refdelx += (midcntr[ib] - midcntr[ib-1])
+        self.refdelx /= 4.
+        self.log.info("Reference delx = %.2f px" % self.refdelx)
+        # calculate reference output x values
+        # refoutx = midcntr[self.REFBAR] + np.arange(-2, 3) * self.refdelx
+        # x0out = int(self.refdelx/2.) + 1
     # END: find_bars()
 
     def trace_bars(self):
@@ -830,8 +852,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                              comment=['Source and destination fiducial points',
                                       'Derived from KCWI continuum bars images',
                                       'For defining spatial transformation'],
-                             keywords={'MIDROW': self.midrow,
-                                       'WINDOW': self.win})
+                             keywords={'MIDROW': (self.midrow,
+                                                  "Middle Row of image"),
+                                       'WINDOW': (self.win, "Window for bar"),
+                                       'REFDELX': (self.refdelx,
+                                                   "Reference bar sep in px")})
             if self.frame.saveintims():
                 # fit transform
                 self.log.info("Fitting spatial control points")
@@ -850,16 +875,17 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         tab = self.n_proctab(target_type='CONTBARS', nearest=True)
         self.log.info("%d continuum bars frames found" % len(tab))
         trace = self.read_table(tab=tab, indir='redux', suffix='trace')
-        src = trace['src']  # source control points
-        dst = trace['dst']  # destination control points
-        barid = trace['barid']
-        slid = trace['slid']
+        self.src = trace['src']  # source control points
+        self.dst = trace['dst']  # destination control points
+        self.barid = trace['barid']
+        self.slid = trace['slid']
         # Get other items
-        midrow = trace.meta['MIDROW']
-        win = trace.meta['WINDOW']
+        self.midrow = trace.meta['MIDROW']
+        self.win = trace.meta['WINDOW']
+        self.refdelx = trace.meta['REFDELX']
 
         self.log.info("Fitting spatial control points")
-        tform = tf.estimate_transform('polynomial', src, dst, order=3)
+        tform = tf.estimate_transform('polynomial', self.src, self.dst, order=3)
 
         self.log.info("Transforming arc image")
         warped = tf.warp(self.frame.data, tform)
@@ -872,11 +898,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         # extract arcs
         self.log.info("Extracting arcs")
         arcs = []
-        for xyi, xy in enumerate(src):
-            if xy[1] == midrow:
+        for xyi, xy in enumerate(self.src):
+            if xy[1] == self.midrow:
                 xi = int(xy[0]+0.5)
                 arc = np.median(
-                    warped[:, (xi - win):(xi + win + 1)], axis=1)
+                    warped[:, (xi - self.win):(xi + self.win + 1)], axis=1)
                 arc = arc - np.nanmin(arc[100:-100])    # avoid ends
                 arcs.append(arc)
         # Did we get the correct number of arcs?
@@ -1948,6 +1974,31 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.log.info("WAVE   ALL: %.2f - %.2f" % (self.waveall0,
                                                    self.waveall1))
         self.log.info("WAVE   MID: %.2f" % self.wavemid)
+        # Start setting up slice transforms
+        self.refoutx = np.arange(0, 5) * self.refdelx + int(self.refdelx/2.) + 1
+        print(self.refoutx)
+        # Variables for output control points
+        srcw = []
+        # Loop over source control points
+        for ixy, xy in enumerate(self.src):
+            # Calculate y wavelength
+            yw = float(np.polyval(self.fincoeff[self.barid[ixy]], xy[1]))
+            # Convert to output pixels
+            yw = (yw - self.wave0out) / self.dwout
+            srcw.append((xy[0], yw))
+        self.write_table(table=[self.src, self.dst, self.barid, self.slid, srcw],
+                         names=('src', 'dst', 'barid', 'slid', 'srcw'),
+                         suffix='geom',
+                         comment=['Source and destination fiducial wavelength points',
+                                  'Derived from KCWI continuum bars images and arcs',
+                                  'For defining spatial transformation'],
+                         keywords={
+                             'MIDROW': (self.midrow,
+                                        "Middle Row of image"),
+                             'WINDOW': (self.win, "Window for bar"),
+                             'REFDELX': (self.refdelx,
+                                         "Reference bar sep in px")
+                         })
         self.log.info("solve_geom")
 
     def apply_flat(self):
