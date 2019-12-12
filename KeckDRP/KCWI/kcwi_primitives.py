@@ -1976,7 +1976,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.log.info("WAVE   MID: %.2f" % self.wavemid)
         # Start setting up slice transforms
         self.refoutx = np.arange(0, 5) * self.refdelx + int(self.refdelx/2.) + 1
-        print(self.refoutx)
         # Variables for output control points
         srcw = []
         # Loop over source control points
@@ -1985,7 +1984,39 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             yw = float(np.polyval(self.fincoeff[self.barid[ixy]], xy[1]))
             # Convert to output pixels
             yw = (yw - self.wave0out) / self.dwout
-            srcw.append((xy[0], yw))
+            srcw.append([xy[0], yw])
+        # Now loop over slices and get relevant control points for each slice
+        for isl in range(0, 24):
+            xw = []
+            yw = []
+            xi = []
+            yi = []
+            for ixy, xy in enumerate(srcw):
+                if self.slid[ixy] == isl:
+                    ib = self.barid[ixy] % 5
+                    xw.append(xy[0])
+                    # xw.append(self.refoutx[ib])
+                    yw.append(xy[1])
+                    xi.append(self.dst[ixy][0])
+                    yi.append(self.dst[ixy][1])
+            # get image limits
+            xl0 = int(min(xi)) - 5
+            xl1 = int(max(xi)) + 10
+            print((isl, xl0, xl1))
+            # adjust control points
+            xit = [x + float(xl0) for x in xi]
+            # fit transform
+            dst = np.column_stack((xit, yi))
+            src = np.column_stack((xw, yw))
+            self.log.info("Fitting wavelength and spatial control points")
+            tform = tf.estimate_transform('polynomial', src, dst, order=3)
+            self.log.info("Transforming arc image %d" % isl)
+            slice_img = self.frame.data[:, xl0:xl1]
+            warped = tf.warp(slice_img, tform)
+            # write out warped image
+            self.frame.data = warped
+            self.write_image(suffix='warped%d' % isl)
+            self.log.info("Transformed arc %d produced" % isl)
         self.write_table(
             table=[self.src, self.dst, self.barid, self.slid, srcw],
             names=('src', 'dst', 'barid', 'slid', 'srcw'),
