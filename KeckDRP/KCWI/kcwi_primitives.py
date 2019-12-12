@@ -1978,14 +1978,28 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.refoutx = np.arange(0, 5) * self.refdelx + int(self.refdelx/2.) + 1
         # Variables for output control points
         srcw = []
+        max_srcw = 0
+        min_srcw = 4096 / self.frame.ybinsize()
         # Loop over source control points
         for ixy, xy in enumerate(self.src):
             # Calculate y wavelength
             yw = float(np.polyval(self.fincoeff[self.barid[ixy]], xy[1]))
             # Convert to output pixels
             yw = (yw - self.wave0out) / self.dwout
+            if yw > max_srcw:
+                max_srcw = yw
+            if yw < min_srcw:
+                min_srcw = yw
             srcw.append([xy[0], yw])
+        ysize = int(max_srcw + min_srcw + 20 / self.frame.ybinsize())
+        xsize = int(max(self.refoutx) + 20 / self.frame.xbinsize())
+        print(xsize, ysize)
+        # Store original data
+        data_img = self.frame.data
         # Now loop over slices and get relevant control points for each slice
+        pl.clf()
+        fig = pl.gcf()
+        fig.set_size_inches(5, 12, forward=True)
         for isl in range(0, 24):
             xw = []
             yw = []
@@ -1994,25 +2008,33 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             for ixy, xy in enumerate(srcw):
                 if self.slid[ixy] == isl:
                     ib = self.barid[ixy] % 5
-                    xw.append(xy[0])
-                    # xw.append(self.refoutx[ib])
+                    # xw.append(xy[0])
+                    xw.append(self.refoutx[ib])
                     yw.append(xy[1])
                     xi.append(self.dst[ixy][0])
                     yi.append(self.dst[ixy][1])
             # get image limits
-            xl0 = int(min(xi)) - 5
-            xl1 = int(max(xi)) + 10
+            xl0 = int(min(xi) - 24 / self.frame.xbinsize())
+            xl1 = int(max(xi) + 16 / self.frame.xbinsize())
             print((isl, xl0, xl1))
             # adjust control points
-            xit = [x + float(xl0) for x in xi]
+            xit = [x - float(xl0) for x in xi]
             # fit transform
             dst = np.column_stack((xit, yi))
             src = np.column_stack((xw, yw))
             self.log.info("Fitting wavelength and spatial control points")
             tform = tf.estimate_transform('polynomial', src, dst, order=3)
             self.log.info("Transforming arc image %d" % isl)
-            slice_img = self.frame.data[:, xl0:xl1]
-            warped = tf.warp(slice_img, tform)
+            slice_img = data_img[:, xl0:xl1]
+            warped = tf.warp(slice_img, tform, order=3,
+                             output_shape=(ysize, xsize))
+            pl.imshow(warped, vmin=-4.6, vmax=2024.2)
+            pl.ylim(0, ysize)
+            pl.title('slice %d' % isl)
+            if self.frame.inter() >= 2:
+                input("Next? <cr>: ")
+            else:
+                pl.pause(self.frame.plotpause())
             # write out warped image
             self.frame.data = warped
             self.write_image(suffix='warped%d' % isl)
