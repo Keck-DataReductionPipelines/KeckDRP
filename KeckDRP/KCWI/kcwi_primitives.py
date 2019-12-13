@@ -1336,6 +1336,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 pl.pause(self.frame.plotpause())
             pl.clf()
             pl.plot(centdisp, 'h', label="Data")
+            pl.xlim([-1, 120])
+            pl.plot([-1, 120], [self.prelim_disp, self.prelim_disp], 'r-.',
+                    label='Calc Disp')
             ylim = pl.gca().get_ylim()
             for ix in range(1, 24):
                 sx = ix * 5 - 0.5
@@ -1343,9 +1346,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     pl.plot([sx, sx], ylim, '-.', color='black', label="Slices")
                 else:
                     pl.plot([sx, sx], ylim, '-.', color='black')
-            pl.xlim([-1, 120])
-            pl.plot([-1, 120], [self.prelim_disp, self.prelim_disp], 'r-.',
-                    label='Calc Disp')
             pl.gca().margins(0)
             pl.xlabel("Bar #")
             pl.ylabel("Central Dispersion (A/px)")
@@ -1986,45 +1986,75 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             yw = float(np.polyval(self.fincoeff[self.barid[ixy]], xy[1]))
             # Convert to output pixels
             yw = (yw - self.wave0out) / self.dwout
+            # Calculate extreme values
             if yw > max_srcw:
                 max_srcw = yw
             if yw < min_srcw:
                 min_srcw = yw
             srcw.append([xy[0], yw])
+        # Use extremes to define output size
         ysize = int(max_srcw + min_srcw + 20 / self.frame.ybinsize())
         xsize = int(max(self.refoutx) + 20 / self.frame.xbinsize())
-        print(xsize, ysize)
+        self.log.info("Output slices will be %d x %d px" % (xsize, ysize))
         # Store original data
         data_img = self.frame.data
         # Now loop over slices and get relevant control points for each slice
+        # set up plots of transformed slices
         pl.clf()
         fig = pl.gcf()
         fig.set_size_inches(5, 12, forward=True)
+        # Store output variables
+        src_out = []
+        dst_out = []
+        barid_out = []
+        slid_out = []
+        xl0_out = []
+        xl1_out = []
+        # Loop over 24 slices
         for isl in range(0, 24):
+            # Get control points
             xw = []
             yw = []
             xi = []
             yi = []
+            barid = []
+            slid = []
+            # Loop over all control points
             for ixy, xy in enumerate(srcw):
+                # Only use the ones for this slice
                 if self.slid[ixy] == isl:
+                    # Index in to reference output x array
                     ib = self.barid[ixy] % 5
-                    # xw.append(xy[0])
+                    # Geometrically corrected control points
                     xw.append(self.refoutx[ib])
                     yw.append(xy[1])
+                    # Input control points
                     xi.append(self.dst[ixy][0])
                     yi.append(self.dst[ixy][1])
+                    # Store output values
+                    barid.append(self.barid[ixy])
+                    slid.append(isl)
             # get image limits
             xl0 = int(min(xi) - 24 / self.frame.xbinsize())
             xl1 = int(max(xi) + 16 / self.frame.xbinsize())
-            print((isl, xl0, xl1))
+            self.log.info("Slice %d arc image x limits: %d - %d" %
+                          (isl, xl0, xl1))
             # adjust control points
             xit = [x - float(xl0) for x in xi]
+            # Store for output
+            for ip, bar in enumerate(barid):
+                slid_out.append(slid[ip])
+                barid_out.append(bar)
+                src_out.append((xit[ip], yi[ip]))
+                dst_out.append((xw[ip], yw[ip]))
+                xl0_out.append(xl0)
+                xl1_out.append(xl1)
             # fit transform
             dst = np.column_stack((xit, yi))
             src = np.column_stack((xw, yw))
             self.log.info("Fitting wavelength and spatial control points")
             tform = tf.estimate_transform('polynomial', src, dst, order=3)
-            self.log.info("Transforming arc image %d" % isl)
+            self.log.info("Transforming arc image slice %d" % isl)
             slice_img = data_img[:, xl0:xl1]
             warped = tf.warp(slice_img, tform, order=3,
                              output_shape=(ysize, xsize))
@@ -2038,17 +2068,20 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # write out warped image
             self.frame.data = warped
             self.write_image(suffix='warped%d' % isl)
-            self.log.info("Transformed arc %d produced" % isl)
+            self.log.info("Transformed arc slice %d produced" % isl)
         self.write_table(
-            table=[self.src, self.dst, self.barid, self.slid, srcw],
-            names=('src', 'dst', 'barid', 'slid', 'srcw'),
+            table=[src_out, dst_out, slid_out, barid_out, xl0_out, xl1_out],
+            names=('src', 'dst', 'slid', 'barid', 'xl0', 'xl1'),
             suffix='geom',
-            comment=['Source and destination fiducial wavelength points',
+            comment=['Source and destination fiducial wavelength points '
+                     'for each slice',
                      'Derived from KCWI continuum bars images and arcs',
-                     'For defining spatial transformation'],
+                     'For defining spatial transformation geometry'],
             keywords={'MIDROW': (self.midrow, "Middle Row of image"),
                       'WINDOW': (self.win, "Window for bar"),
-                      'REFDELX': (self.refdelx, "Reference bar sep in px")}
+                      'REFDELX': (self.refdelx, "Reference bar sep in px"),
+                      'XSIZE': (xsize, "Output x axis size in px"),
+                      'YSIZE': (ysize, "Output y axis size in px")}
         )
         self.log.info("solve_geom")
 
@@ -2059,6 +2092,68 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.log.info("subtract_sky")
 
     def make_cube(self):
+        self.log.info("Generating data cube")
+        # Find  and read control points from arc image
+        tab = self.n_proctab(target_type='ARCLAMP', nearest=True)
+        self.log.info("%d arc frames found" % len(tab))
+        geom = self.read_table(tab=tab, indir='redux', suffix='geom')
+        self.src = geom['src']  # source control points
+        self.dst = geom['dst']  # destination control points
+        xl0s = geom['xl0']
+        xl1s = geom['xl1']
+        self.barid = geom['barid']
+        self.slid = geom['slid']
+        xsize = geom.meta['XSIZE']
+        ysize = geom.meta['YSIZE']
+        # set up plots of transformed slices
+        pl.clf()
+        fig = pl.gcf()
+        fig.set_size_inches(5, 12, forward=True)
+        # Store original data
+        data_img = self.frame.data
+        # Loop over 24 slices
+        for isl in range(0, 24):
+            # Get control points
+            xw = []
+            yw = []
+            xi = []
+            yi = []
+            xl0 = 0
+            xl1 = 0
+            # Loop over all control points
+            for ixy, xy in enumerate(self.src):
+                # Only use the ones for this slice
+                if self.slid[ixy] == isl:
+                    xw.append(xy[0])
+                    yw.append(xy[1])
+                    xi.append(self.dst[ixy][0])
+                    yi.append(self.dst[ixy][1])
+                    # get image limits
+                    xl0 = xl0s[ixy]
+                    xl1 = xl1s[ixy]
+            self.log.info("Slice %d image x limits: %d - %d" %
+                          (isl, xl0, xl1))
+            # fit transform
+            dst = np.column_stack((xi, yi))
+            src = np.column_stack((xw, yw))
+            self.log.info("Fitting wavelength and spatial control points")
+            tform = tf.estimate_transform('polynomial', src, dst, order=3)
+            self.log.info("Transforming image slice %d" % isl)
+            slice_img = data_img[:, xl0:xl1]
+            warped = tf.warp(slice_img, tform, order=3,
+                             output_shape=(ysize, xsize))
+            pl.imshow(warped)
+            pl.ylim(0, ysize)
+            pl.title('slice %d' % isl)
+            if self.frame.inter() >= 2:
+                input("Next? <cr>: ")
+            else:
+                pl.pause(self.frame.plotpause())
+            # write out warped image
+            self.frame.data = warped
+            self.write_image(suffix='warped%d' % isl)
+            self.log.info("Transformed image slice %d produced" % isl)
+        self.frame.data = data_img
         self.log.info("make_cube")
 
     def apply_dar_correction(self):
