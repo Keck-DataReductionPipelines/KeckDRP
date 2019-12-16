@@ -17,6 +17,7 @@ from scipy.interpolate import interpolate
 from scipy.optimize import curve_fit
 from scipy.stats import sigmaclip, mode
 from skimage import transform as tf
+import pickle
 from astropy.table import Table
 import astropy.io.fits as pf
 import matplotlib.pyplot as pl
@@ -1996,20 +1997,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         ysize = int(max_srcw + min_srcw + 20 / self.frame.ybinsize())
         xsize = int(max(self.refoutx) + 20 / self.frame.xbinsize())
         self.log.info("Output slices will be %d x %d px" % (xsize, ysize))
-        # Store original data
-        data_img = self.frame.data
         # Now loop over slices and get relevant control points for each slice
-        # set up plots of transformed slices
-        pl.clf()
-        fig = pl.gcf()
-        fig.set_size_inches(5, 12, forward=True)
-        # Store output variables
-        src_out = []
-        dst_out = []
-        barid_out = []
-        slid_out = []
+        # Output variables
         xl0_out = []
         xl1_out = []
+        tform_list = []
         # Loop over 24 slices
         for isl in range(0, 24):
             # Get control points
@@ -2017,8 +2009,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             yw = []
             xi = []
             yi = []
-            barid = []
-            slid = []
             # Loop over all control points
             for ixy, xy in enumerate(srcw):
                 # Only use the ones for this slice
@@ -2031,59 +2021,35 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     # Input control points
                     xi.append(self.dst[ixy][0])
                     yi.append(self.dst[ixy][1])
-                    # Store output values
-                    barid.append(self.barid[ixy])
-                    slid.append(isl)
             # get image limits
             xl0 = int(min(xi) - 24 / self.frame.xbinsize())
             xl1 = int(max(xi) + 16 / self.frame.xbinsize())
+            # Store for output
+            xl0_out.append(xl0)
+            xl1_out.append(xl1)
             self.log.info("Slice %d arc image x limits: %d - %d" %
                           (isl, xl0, xl1))
             # adjust control points
             xit = [x - float(xl0) for x in xi]
-            # Store for output
-            for ip, bar in enumerate(barid):
-                slid_out.append(slid[ip])
-                barid_out.append(bar)
-                src_out.append((xit[ip], yi[ip]))
-                dst_out.append((xw[ip], yw[ip]))
-                xl0_out.append(xl0)
-                xl1_out.append(xl1)
             # fit transform
             dst = np.column_stack((xit, yi))
             src = np.column_stack((xw, yw))
             self.log.info("Fitting wavelength and spatial control points")
             tform = tf.estimate_transform('polynomial', src, dst, order=3)
-            self.log.info("Transforming arc image slice %d" % isl)
-            slice_img = data_img[:, xl0:xl1]
-            warped = tf.warp(slice_img, tform, order=3,
-                             output_shape=(ysize, xsize))
-            pl.imshow(warped, vmin=-4.6, vmax=2024.2)
-            pl.ylim(0, ysize)
-            pl.title('slice %d' % isl)
-            if self.frame.inter() >= 2:
-                input("Next? <cr>: ")
-            else:
-                pl.pause(self.frame.plotpause())
-            # write out warped image
-            self.frame.data = warped
-            self.write_image(suffix='warped%d' % isl)
-            self.log.info("Transformed arc slice %d produced" % isl)
-        self.write_table(
-            table=[src_out, dst_out, slid_out, barid_out, xl0_out, xl1_out],
-            names=('src', 'dst', 'slid', 'barid', 'xl0', 'xl1'),
-            suffix='geom',
-            comment=['Source and destination fiducial wavelength points '
-                     'for each slice',
-                     'Derived from KCWI continuum bars images and arcs',
-                     'For defining spatial transformation geometry'],
-            keywords={'MIDROW': (self.midrow, "Middle Row of image"),
-                      'WINDOW': (self.win, "Window for bar"),
-                      'REFDELX': (self.refdelx, "Reference bar sep in px"),
-                      'XSIZE': (xsize, "Output x axis size in px"),
-                      'YSIZE': (ysize, "Output y axis size in px")}
-        )
-        self.log.info("solve_geom")
+            # Store for output
+            tform_list.append(tform)
+        # Package geometry data
+        geom = {"xsize": xsize, "ysize": ysize,
+                "xl0": xl0_out, "xl1": xl1_out,
+                "tform": tform_list}
+        ofname = self.frame.header['OFNAME']
+        outfn = os.path.join(conf.REDUXDIR, ofname.split('.')[0] + '_geom.pkl')
+        if os.path.exists(outfn):
+            self.log.error("Geometry file already exists: %s" % outfn)
+        else:
+            with open(outfn, 'wb') as ofile:
+                pickle.dump(geom, ofile)
+            self.log.info("Geometry written to: %s" % outfn)
 
     def apply_flat(self):
         self.log.info("apply_flat")
@@ -2093,68 +2059,60 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
 
     def make_cube(self):
         self.log.info("Generating data cube")
-        # Find  and read control points from arc image
+        # Find and read geometry transformation
         tab = self.n_proctab(target_type='ARCLAMP', nearest=True)
         self.log.info("%d arc frames found" % len(tab))
-        geom = self.read_table(tab=tab, indir='redux', suffix='geom')
-        self.src = geom['src']  # source control points
-        self.dst = geom['dst']  # destination control points
-        xl0s = geom['xl0']
-        xl1s = geom['xl1']
-        self.barid = geom['barid']
-        self.slid = geom['slid']
-        xsize = geom.meta['XSIZE']
-        ysize = geom.meta['YSIZE']
-        # set up plots of transformed slices
-        pl.clf()
-        fig = pl.gcf()
-        fig.set_size_inches(5, 12, forward=True)
-        # Store original data
-        data_img = self.frame.data
-        # Loop over 24 slices
-        for isl in range(0, 24):
-            # Get control points
-            xw = []
-            yw = []
-            xi = []
-            yi = []
-            xl0 = 0
-            xl1 = 0
-            # Loop over all control points
-            for ixy, xy in enumerate(self.src):
-                # Only use the ones for this slice
-                if self.slid[ixy] == isl:
-                    xw.append(xy[0])
-                    yw.append(xy[1])
-                    xi.append(self.dst[ixy][0])
-                    yi.append(self.dst[ixy][1])
-                    # get image limits
-                    xl0 = xl0s[ixy]
-                    xl1 = xl1s[ixy]
-            self.log.info("Slice %d image x limits: %d - %d" %
-                          (isl, xl0, xl1))
-            # fit transform
-            dst = np.column_stack((xi, yi))
-            src = np.column_stack((xw, yw))
-            self.log.info("Fitting wavelength and spatial control points")
-            tform = tf.estimate_transform('polynomial', src, dst, order=3)
-            self.log.info("Transforming image slice %d" % isl)
-            slice_img = data_img[:, xl0:xl1]
-            warped = tf.warp(slice_img, tform, order=3,
-                             output_shape=(ysize, xsize))
-            pl.imshow(warped)
-            pl.ylim(0, ysize)
-            pl.title('slice %d' % isl)
-            if self.frame.inter() >= 2:
-                input("Next? <cr>: ")
-            else:
-                pl.pause(self.frame.plotpause())
-            # write out warped image
-            self.frame.data = warped
-            self.write_image(suffix='warped%d' % isl)
-            self.log.info("Transformed image slice %d produced" % isl)
-        self.frame.data = data_img
-        self.log.info("make_cube")
+        ofname = tab['OFNAME'][0]
+        geom_file = os.path.join(conf.REDUXDIR,
+                                 ofname.split('.')[0] + '_geom.pkl')
+        if os.path.exists(geom_file):
+            with open(geom_file, 'rb') as ifile:
+                geom = pickle.load(ifile)
+            xsize = geom['xsize']
+            ysize = geom['ysize']
+            # out_cube = np.zeros((24, xsize, ysize))
+            out_cube = np.zeros((ysize, xsize, 24))
+            # set up plots of transformed slices
+            pl.clf()
+            fig = pl.gcf()
+            fig.set_size_inches(5, 12, forward=True)
+            # Store original data
+            data_img = self.frame.data
+            # Loop over 24 slices
+            for isl in range(0, 24):
+                tform = geom['tform'][isl]
+                xl0 = geom['xl0'][isl]
+                xl1 = geom['xl1'][isl]
+                self.log.info("Transforming image slice %d" % isl)
+                slice_img = data_img[:, xl0:xl1]
+                pl.clf()
+                pl.imshow(slice_img)
+                pl.ylim(0, ysize)
+                pl.title('raw slice %d' % isl)
+                if self.frame.inter() >= 2:
+                    input("Next? <cr>: ")
+                else:
+                    pl.pause(self.frame.plotpause())
+                warped = tf.warp(slice_img, tform, order=3,
+                                 output_shape=(ysize, xsize))
+                print(warped.shape)
+                for iy in range(ysize):
+                    for ix in range(xsize):
+                        out_cube[iy, ix, isl] = warped[iy, ix]
+                pl.imshow(warped)
+                pl.ylim(0, ysize)
+                pl.title('warped slice %d' % isl)
+                if self.frame.inter() >= 2:
+                    input("Next? <cr>: ")
+                else:
+                    pl.pause(self.frame.plotpause())
+            # write out cube
+            self.frame.data = out_cube
+            self.write_image(suffix='icube')
+            self.log.info("Cube written")
+            self.frame.data = data_img
+        else:
+            self.log.error("Geometry file not found: %s" % geom_file)
 
     def apply_dar_correction(self):
         self.log.info("apply_dar_correction")
