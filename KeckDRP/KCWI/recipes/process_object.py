@@ -20,19 +20,28 @@ def process_object(p, frame):
     p.subtract_dark()
 
     # KCWI specific reductions
+    # 2-D reductions
     p.subtract_scattered_light()
     p.apply_flat()
     p.subtract_sky()
-    p.make_cube()
-    p.apply_dar_correction()
-    p.flux_calibrate()
 
     # write image
-    # this should eventually be suffix='icube'
     p.write_image(suffix='int')
-
     # update proc table
     p.update_proctab(suffix='int')
     p.write_proctab()
 
     p.log.info("science frame reduced")
+
+    # 3-D reductions
+    p.make_cube()
+    p.apply_dar_correction()
+    p.flux_calibrate()
+
+    # write image
+    p.write_image(suffix='icube')
+    # update proc table
+    p.update_proctab(suffix='icube')
+    p.write_proctab()
+
+    p.log.info("science cube generated")

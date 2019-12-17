@@ -18,7 +18,6 @@ def process_arclamp(p, frame):
 
     # write image
     p.write_image(suffix='int')
-
     # update proc table
     p.update_proctab(suffix='int')
     p.write_proctab()
@@ -33,3 +32,12 @@ def process_arclamp(p, frame):
     p.get_atlas_lines()
     p.solve_arcs()
     p.solve_geom()
+    p.make_cube()
+
+    # write image
+    p.write_image(suffix='icube')
+    # update proc table
+    p.update_proctab(suffix='icube')
+    p.write_proctab()
+
+    p.log.info("3D geometry generated")

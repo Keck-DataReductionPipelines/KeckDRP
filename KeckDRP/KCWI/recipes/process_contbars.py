@@ -18,7 +18,6 @@ def process_contbars(p, frame):
 
     # write image
     p.write_image(suffix='int')
-
     # update proc table
     p.update_proctab(suffix='int')
     p.write_proctab()
@@ -29,3 +28,4 @@ def process_contbars(p, frame):
     p.find_bars()
     p.trace_bars()
 
+    p.log.info("spatial geometry traced")
