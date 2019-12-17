@@ -265,13 +265,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.readnoise = None       # readnoise (e-)
         # find_bars() variables
         self.refdelx = None         # Reference bar separation in pixels
-        # trace_bars() variables
         self.midrow = None          # middle row
         self.midcntr = None         # middle centroids
-        self.xi = None
-        self.yi = None
-        self.xo = None
-        self.yo = None
+        self.cbarsno = None         # image number for continuum bars
+        self.cbarsfl = None         # image filename for continuum bars
+        # trace_bars() variables
         self.win = None             # sample window
         self.src = None             # source control points
         self.dst = None             # destination control points
@@ -279,6 +277,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.slid = None            # control points slice number
         # extract_arcs() variables
         self.arcs = None            # extracted arcs
+        self.arcno = None           # image number for arc
+        self.arcfl = None           # image filename for arc
         # arc_offsets() variables
         self.baroffs = None         # pixel offsets relative to ref bar
         # calc_prelim_disp() variables
@@ -409,11 +409,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             logstr = self.subtract_bias.__module__ + "." + \
                      self.subtract_bias.__qualname__
             self.frame.header['HISTORY'] = logstr
-            self.log.info(self.subtract_bias.__qualname__)
         else:
             self.frame.header['BIASSUB'] = (False,
                                             self.keyword_comments['BIASSUB'])
             self.log.warn('No Master Bias frame found. NO BIAS SUBTRACTION')
+        self.log.info(self.subtract_bias.__qualname__)
+    # END: subtract_bias()
 
     def create_unc(self):
         """Assumes units of image are electron"""
@@ -436,6 +437,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                  self.create_unc.__qualname__
         self.frame.header['HISTORY'] = logstr
         self.log.info(self.create_unc.__qualname__)
+    # END: create_unc()
 
     def subtract_dark(self):
         tab = self.n_proctab(target_type='MDARK', nearest=True)
@@ -448,11 +450,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             logstr = self.subtract_dark.__module__ + "." + \
                      self.subtract_dark.__qualname__
             self.frame.header['HISTORY'] = logstr
-            self.log.info(self.subtract_dark.__qualname__)
         else:
             self.frame.header['DARKSUB'] = (False,
                                             self.keyword_comments['DARKSUB'])
             self.log.warn('No Master Dark frame found. NO DARK SUBTRACTION')
+        self.log.info(self.subtract_dark.__qualname__)
+    # END: subtract_dark()
 
     def fit_flat(self):
         tab = self.n_proctab(target_type='FLAT', nearest=True)
@@ -756,9 +759,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.refdelx += (midcntr[ib] - midcntr[ib-1])
         self.refdelx /= 4.
         self.log.info("Reference delx = %.2f px" % self.refdelx)
-        # calculate reference output x values
-        # refoutx = midcntr[self.REFBAR] + np.arange(-2, 3) * self.refdelx
-        # x0out = int(self.refdelx/2.) + 1
+        # store image info
+        self.cbarsno = self.frame.header['FRAMENO']
+        self.cbarsfl = self.frame.header['OFNAME']
+        logstr = self.find_bars.__module__ + "." + \
+                 self.find_bars.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(self.find_bars.__qualname__)
     # END: find_bars()
 
     def trace_bars(self):
@@ -860,7 +867,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                                                   "Middle Row of image"),
                                        'WINDOW': (self.win, "Window for bar"),
                                        'REFDELX': (self.refdelx,
-                                                   "Reference bar sep in px")})
+                                                   "Reference bar sep in px"),
+                                       'CBARSNO': (self.cbarsno,
+                                                   "Cont. bars image number"),
+                                       'CBARSFL': (self.cbarsfl,
+                                                   "Cont. bars image")})
+            logstr = self.trace_bars.__module__ + "." + \
+                     self.trace_bars.__qualname__
+            self.frame.header['HISTORY'] = logstr
             if self.frame.saveintims():
                 # fit transform
                 self.log.info("Fitting spatial control points")
@@ -871,6 +885,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 self.frame.data = warped
                 self.write_image(suffix='warped')
                 self.log.info("Transformed bars produced")
+        self.log.info(self.trace_bars.__qualname__)
     # END: trace_bars()
 
     def extract_arcs(self):
@@ -887,6 +902,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.midrow = trace.meta['MIDROW']
         self.win = trace.meta['WINDOW']
         self.refdelx = trace.meta['REFDELX']
+        self.cbarsno = trace.meta['CBARSNO']
+        self.cbarsfl = trace.meta['CBARSFL']
+        self.arcno = self.frame.header['FRAMENO']
+        self.arcfl = self.frame.header['OFNAME']
 
         self.log.info("Fitting spatial control points")
         tform = tf.estimate_transform('polynomial', self.src, self.dst, order=3)
@@ -913,9 +932,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         if len(arcs) == self.NBARS:
             self.log.info("Extracted %d arcs" % len(arcs))
             self.arcs = arcs
+            logstr = self.extract_arcs.__module__ + "." + \
+                     self.extract_arcs.__qualname__
+            self.frame.header['HISTORY'] = logstr
         else:
             self.log.error("Did not extract %d arcs, extracted %d" %
                            (self.NBARS, len(arcs)))
+        self.log.info(self.extract_arcs.__qualname__)
     # END: extract_arcs()
 
     def arc_offsets(self):
@@ -979,8 +1002,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     input("Next? <cr>: ")
                 else:
                     pl.pause(self.frame.plotpause())
+            logstr = self.arc_offsets.__module__ + "." + \
+                     self.arc_offsets.__qualname__
+            self.frame.header['HISTORY'] = logstr
         else:
             self.log.error("No extracted arcs found")
+        self.log.info(self.arc_offsets.__qualname__)
     # END: arc_offsets()
 
     def calc_prelim_disp(self):
@@ -1359,6 +1386,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 input("Next? <cr>: ")
             else:
                 pl.pause(self.frame.plotpause())
+        logstr = self.fit_center.__module__ + "." + \
+                 self.fit_center.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(self.fit_center.__qualname__)
     # END: fit_center()
 
     def get_atlas_lines(self):
@@ -1937,6 +1968,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 input("Next? <cr>: ")
             else:
                 pl.pause(self.frame.plotpause())
+        logstr = self.solve_arcs.__module__ + "." + \
+                 self.solve_arcs.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(self.solve_arcs.__qualname__)
     # END: solve_arcs()
 
     def solve_geom(self):
@@ -2051,8 +2086,20 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             tform = tf.estimate_transform('polynomial', src, dst, order=3)
             # Store for output
             tform_list.append(tform)
+        # Pixel scales
+        pxscl = KcwiConf.PIXSCALE * self.frame.xbinsize()
+        ifunum = self.frame.ifunum()
+        if ifunum == 2:
+            slscl = KcwiConf.SLICESCALE / 2.0
+        elif ifunum == 3:
+            slscl = KcwiConf.SLICESCALE / 4.0
+        else:
+            slscl = KcwiConf.SLICESCALE
         # Package geometry data
         geom = {"xsize": xsize, "ysize": ysize,
+                "pxscl": pxscl, "slscl": slscl,
+                "cbarsno": self.cbarsno, "cbarsfl": self.cbarsfl,
+                "arcno": self.arcno, "arcfl": self.arcfl,
                 "barsep": self.refdelx, "bar0": self.x0out,
                 "waveall0": self.waveall0, "waveall1": self.waveall1,
                 "wavegood0": self.wavegood0, "wavegood1": self.wavegood1,
@@ -2068,6 +2115,11 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             with open(outfn, 'wb') as ofile:
                 pickle.dump(geom, ofile)
             self.log.info("Geometry written to: %s" % outfn)
+        logstr = self.solve_geom.__module__ + "." + \
+                 self.solve_geom.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(self.solve_geom.__qualname__)
+    # END: solve_geom()
 
     def apply_flat(self):
         self.log.info("apply_flat")
@@ -2131,6 +2183,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 else:
                     pl.pause(self.frame.plotpause())
             # Update header
+            # Wavelength ranges
             self.frame.header['WAVALL0'] = (geom['waveall0'],
                                             'Low inclusive wavelength')
             self.frame.header['WAVALL1'] = (geom['waveall1'],
@@ -2141,12 +2194,24 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                                              'High good wavelength')
             self.frame.header['WAVMID'] = (geom['wavemid'],
                                            'middle wavelength')
+            # Wavelength fit statistics
             self.frame.header['AVWVSIG'] = (geom['avwvsig'],
                                             'Avg. bar wave sigma (Ang)')
             self.frame.header['SDWVSIG'] = (geom['sdwvsig'],
                                             'Stdev. var wave sigma (Ang)')
+            # Pixel scales
             self.frame.header['CTYPE3'] = ('AWAV', 'Air Wavelengths')
             self.frame.header['CUNIT3'] = ('Angstrom', 'Wavelength units')
+            # Geometry origins
+            self.frame.header['CBARSNO'] = (geom['cbarsno'],
+                                            'Continuum bars image number')
+            self.frame.header['CBARSFL'] = (geom['cbarsfl'],
+                                            'Continuum bars image filename')
+            self.frame.header['ARCNO'] = (geom['arcno'], 'Arc image number')
+            self.frame.header['ARCFL'] = (geom['arcfl'], 'Arc image filename')
+            self.frame.header['GEOMFL'] = (geom_file.split('/')[-1],
+                                           'Geometry file')
+            # WCS
             self.frame.header['CNAME3'] = ('KCWI Wavelength', 'Wavelength name')
             self.frame.header['CRVAL3'] = (geom['wave0out'],
                                            'Wavelength zeropoint')
@@ -2154,12 +2219,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.frame.header['CD3_3'] = (geom['dwout'],
                                           'Wavelength Angstroms per pixel')
             # write out cube
+            logstr = self.make_cube.__module__ + "." + \
+                     self.make_cube.__qualname__
+            self.frame.header['HISTORY'] = logstr
             self.frame.data = out_cube
-            self.write_image(suffix='icube')
-            self.log.info("Cube written")
-            self.frame.data = data_img
         else:
             self.log.error("Geometry file not found: %s" % geom_file)
+        self.log.info(self.make_cube.__qualname__)
+    # END: make_cube()
 
     def apply_dar_correction(self):
         self.log.info("apply_dar_correction")
