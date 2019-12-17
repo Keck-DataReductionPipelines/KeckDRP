@@ -51,6 +51,14 @@ class Conf(_config.ConfigNamespace):
         0.2,
         'Taper fraction for atlas cross-correlation'
     )
+    PIXSCALE = _config.ConfigItem(
+        0.00004048,
+        'Degrees per unbinned pixel'
+    )
+    SLICESCALE = _config.ConfigItem(
+        0.00037718,
+        'Degrees per Large slicer slice'
+    )
 
 
 KcwiConf = Conf()
