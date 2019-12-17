@@ -305,8 +305,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.at_wave = None         # atlas wavelength list
         # solve_arcs() variables
         self.fincoeff = []          # Final wavelength solution coeffs
-        self.bar_sig = []           # Final sigma of bar wavelength fit
-        self.bar_nls = []           # Final number of lines used for fit
+        self.av_bar_sig = None      # Average sigma of bar wavelength fits
+        self.st_bar_sig = None      # StdDev of sigmas of bar wavelength fits
+        self.av_bar_nls = None      # Average number of lines used for fits
+        self.st_bar_nls = None      # StdDev of number of lines used for fits
         self.xsvals = None          # pixels values starting at zero
         # solve_geom() variables
         self.arc_xpos = None        # arc ref bar line x position list
@@ -319,6 +321,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.dwout = None           # Output dispersion
         self.wave0out = None        # Output starting wavelength
         self.wave1out = None        # Output ending wavelength
+        self.x0out = None           # Output first bar pixel position
         self.refoutx = None         # Output x positions for bars in cube
         super(KcwiPrimitives, self).__init__()
 
@@ -1579,6 +1582,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         else:
             do_inter = False
         verbose = False
+        # Bar statistics
+        bar_sig = []
+        bar_nls = []
         # set thresh for finding lines
         hgt = 50.
         self.log.info("line thresh = %.2f" % hgt)
@@ -1768,8 +1774,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                           (ib, int(ib / 5), wsig, len(arc_pix_dat)))
             # print("")
             self.fincoeff.append(wfit)
-            self.bar_sig.append(wsig)
-            self.bar_nls.append(len(arc_pix_dat))
+            bar_sig.append(wsig)
+            bar_nls.append(len(arc_pix_dat))
             # plot bar fit residuals
             if master_inter:
                 pl.ion()
@@ -1850,22 +1856,25 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.ioff()
         # Plot fit sigmas
         pl.clf()
-        pl.plot(self.bar_sig, 'd', label='RMS')
+        pl.plot(bar_sig, 'd', label='RMS')
         xlim = [-1, 120]
         ylim = pl.gca().get_ylim()
-        av_bar_sig = float(np.nanmean(self.bar_sig))
-        st_bar_sig = float(np.nanstd(self.bar_sig))
-        self.log.info("<STD>     = %.3f +- %.3f (A)" % (av_bar_sig, st_bar_sig))
-        pl.plot(xlim, [av_bar_sig, av_bar_sig], 'k--')
-        pl.plot(xlim, [(av_bar_sig-st_bar_sig), (av_bar_sig-st_bar_sig)], 'k:')
-        pl.plot(xlim, [(av_bar_sig+st_bar_sig), (av_bar_sig+st_bar_sig)], 'k:')
+        self.av_bar_sig = float(np.nanmean(bar_sig))
+        self.st_bar_sig = float(np.nanstd(bar_sig))
+        self.log.info("<STD>     = %.3f +- %.3f (A)" % (self.av_bar_sig,
+                                                        self.st_bar_sig))
+        pl.plot(xlim, [self.av_bar_sig, self.av_bar_sig], 'k--')
+        pl.plot(xlim, [(self.av_bar_sig-self.st_bar_sig),
+                       (self.av_bar_sig-self.st_bar_sig)], 'k:')
+        pl.plot(xlim, [(self.av_bar_sig+self.st_bar_sig),
+                       (self.av_bar_sig+self.st_bar_sig)], 'k:')
         for ix in range(1, 24):
             sx = ix * 5 - 0.5
             pl.plot([sx, sx], ylim, '-.', color='black')
         pl.xlabel("Bar #")
         pl.ylabel("RMS (A)")
-        pl.title(self.frame.plotlabel() + " <RMS>: %.3f +- %.3f" % (av_bar_sig,
-                                                                    st_bar_sig))
+        pl.title(self.frame.plotlabel() +
+                 " <RMS>: %.3f +- %.3f" % (self.av_bar_sig, self.st_bar_sig))
         pl.xlim(xlim)
         pl.gca().margins(0)
         pl.savefig("arc_%05d_resid_%s_%s_%s.png" %
@@ -1877,21 +1886,24 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             pl.pause(self.frame.plotpause())
         # Plot number of lines fit
         pl.clf()
-        pl.plot(self.bar_nls, 'd', label='N lines')
+        pl.plot(bar_nls, 'd', label='N lines')
         ylim = pl.gca().get_ylim()
-        av_bar_nls = float(np.nanmean(self.bar_nls))
-        st_bar_nls = float(np.nanstd(self.bar_nls))
-        self.log.info("<N Lines> = %.1f +- %.1f" % (av_bar_nls, st_bar_nls))
-        pl.plot(xlim, [av_bar_nls, av_bar_nls], 'k--')
-        pl.plot(xlim, [(av_bar_nls-st_bar_nls), (av_bar_nls-st_bar_nls)], 'k:')
-        pl.plot(xlim, [(av_bar_nls+st_bar_nls), (av_bar_nls+st_bar_nls)], 'k:')
+        self.av_bar_nls = float(np.nanmean(bar_nls))
+        self.st_bar_nls = float(np.nanstd(bar_nls))
+        self.log.info("<N Lines> = %.1f +- %.1f" % (self.av_bar_nls,
+                                                    self.st_bar_nls))
+        pl.plot(xlim, [self.av_bar_nls, self.av_bar_nls], 'k--')
+        pl.plot(xlim, [(self.av_bar_nls-self.st_bar_nls),
+                       (self.av_bar_nls-self.st_bar_nls)], 'k:')
+        pl.plot(xlim, [(self.av_bar_nls+self.st_bar_nls),
+                       (self.av_bar_nls+self.st_bar_nls)], 'k:')
         for ix in range(1, 24):
             sx = ix * 5 - 0.5
             pl.plot([sx, sx], ylim, '-.', color='black')
         pl.xlabel("Bar #")
         pl.ylabel("N Lines")
         pl.title(self.frame.plotlabel() + " <N Lines>: %.3f +- %.3f" %
-                 (av_bar_nls, st_bar_nls))
+                 (self.av_bar_nls, self.st_bar_nls))
         pl.xlim(xlim)
         pl.gca().margins(0)
         pl.savefig("arc_%05d_nlines_%s_%s_%s.png" %
@@ -1976,7 +1988,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                                                    self.waveall1))
         self.log.info("WAVE   MID: %.2f" % self.wavemid)
         # Start setting up slice transforms
-        self.refoutx = np.arange(0, 5) * self.refdelx + int(self.refdelx/2.) + 1
+        self.x0out = int(self.refdelx/2.) + 1
+        self.refoutx = np.arange(0, 5) * self.refdelx + self.x0out
         # Variables for output control points
         srcw = []
         max_srcw = 0
@@ -2040,8 +2053,13 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             tform_list.append(tform)
         # Package geometry data
         geom = {"xsize": xsize, "ysize": ysize,
-                "xl0": xl0_out, "xl1": xl1_out,
-                "tform": tform_list}
+                "barsep": self.refdelx, "bar0": self.x0out,
+                "waveall0": self.waveall0, "waveall1": self.waveall1,
+                "wavegood0": self.wavegood0, "wavegood1": self.wavegood1,
+                "wavemid": self.wavemid, "dwout": self.dwout,
+                "wave0out": self.wave0out, "wave1out": self.wave1out,
+                "avwvsig": self.av_bar_sig, "sdwvsig": self.st_bar_sig,
+                "xl0": xl0_out, "xl1": xl1_out, "tform": tform_list}
         ofname = self.frame.header['OFNAME']
         outfn = os.path.join(conf.REDUXDIR, ofname.split('.')[0] + '_geom.pkl')
         if os.path.exists(outfn):
@@ -2058,6 +2076,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.log.info("subtract_sky")
 
     def make_cube(self):
+        # Are we interactive?
+        if KcwiConf.INTER >= 2:
+            do_inter = True
+            pl.ion()
+        else:
+            do_inter = False
         self.log.info("Generating data cube")
         # Find and read geometry transformation
         tab = self.n_proctab(target_type='ARCLAMP', nearest=True)
@@ -2068,6 +2092,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         if os.path.exists(geom_file):
             with open(geom_file, 'rb') as ifile:
                 geom = pickle.load(ifile)
+            # Slice size
             xsize = geom['xsize']
             ysize = geom['ysize']
             # out_cube = np.zeros((24, xsize, ysize))
@@ -2078,6 +2103,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             fig.set_size_inches(5, 12, forward=True)
             # Store original data
             data_img = self.frame.data
+            hdr_img = self.frame.header
             # Loop over 24 slices
             for isl in range(0, 24):
                 tform = geom['tform'][isl]
@@ -2085,27 +2111,48 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 xl1 = geom['xl1'][isl]
                 self.log.info("Transforming image slice %d" % isl)
                 slice_img = data_img[:, xl0:xl1]
-                pl.clf()
-                pl.imshow(slice_img)
-                pl.ylim(0, ysize)
-                pl.title('raw slice %d' % isl)
-                if self.frame.inter() >= 2:
-                    input("Next? <cr>: ")
-                else:
-                    pl.pause(self.frame.plotpause())
+
                 warped = tf.warp(slice_img, tform, order=3,
                                  output_shape=(ysize, xsize))
-                print(warped.shape)
                 for iy in range(ysize):
                     for ix in range(xsize):
                         out_cube[iy, ix, isl] = warped[iy, ix]
-                pl.imshow(warped)
+                wmid = np.nanmedian(warped)
+                wstd = np.nanstd(warped)
+                pl.clf()
+                pl.imshow(warped, vmin=(wmid-wstd*2.), vmax=(wmid+wstd*2.))
                 pl.ylim(0, ysize)
                 pl.title('warped slice %d' % isl)
-                if self.frame.inter() >= 2:
-                    input("Next? <cr>: ")
+                if do_inter:
+                    q = input("<cr> - Next, q to quit: ")
+                    if 'Q' in q.upper():
+                        do_inter = False
+                        pl.ioff()
                 else:
                     pl.pause(self.frame.plotpause())
+            # Update header
+            self.frame.header['WAVALL0'] = (geom['waveall0'],
+                                            'Low inclusive wavelength')
+            self.frame.header['WAVALL1'] = (geom['waveall1'],
+                                            'High inclusive wavelength')
+            self.frame.header['WAVGOOD0'] = (geom['wavegood0'],
+                                             'Low good wavelength')
+            self.frame.header['WAVGOOD1'] = (geom['wavegood1'],
+                                             'High good wavelength')
+            self.frame.header['WAVMID'] = (geom['wavemid'],
+                                           'middle wavelength')
+            self.frame.header['AVWVSIG'] = (geom['avwvsig'],
+                                            'Avg. bar wave sigma (Ang)')
+            self.frame.header['SDWVSIG'] = (geom['sdwvsig'],
+                                            'Stdev. var wave sigma (Ang)')
+            self.frame.header['CTYPE3'] = ('AWAV', 'Air Wavelengths')
+            self.frame.header['CUNIT3'] = ('Angstrom', 'Wavelength units')
+            self.frame.header['CNAME3'] = ('KCWI Wavelength', 'Wavelength name')
+            self.frame.header['CRVAL3'] = (geom['wave0out'],
+                                           'Wavelength zeropoint')
+            self.frame.header['CRPIX3'] = (1., 'Wavelength reference pixel')
+            self.frame.header['CD3_3'] = (geom['dwout'],
+                                          'Wavelength Angstroms per pixel')
             # write out cube
             self.frame.data = out_cube
             self.write_image(suffix='icube')
