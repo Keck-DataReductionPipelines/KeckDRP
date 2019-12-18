@@ -323,6 +323,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         self.wave1out = None        # Output ending wavelength
         self.x0out = None           # Output first bar pixel position
         self.refoutx = None         # Output x positions for bars in cube
+        self.geom_file = None       # Geometry output file
         super(KcwiPrimitives, self).__init__()
 
     @staticmethod
@@ -2050,6 +2051,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         xl0_out = []
         xl1_out = []
         tform_list = []
+        invtf_list = []
         # Loop over 24 slices
         for isl in range(0, 24):
             # Get control points
@@ -2084,8 +2086,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             src = np.column_stack((xw, yw))
             self.log.info("Fitting wavelength and spatial control points")
             tform = tf.estimate_transform('polynomial', src, dst, order=3)
+            invtf = tf.estimate_transform('polynomial', dst, src, order=3)
             # Store for output
             tform_list.append(tform)
+            invtf_list.append(invtf)
         # Pixel scales
         pxscl = KcwiConf.PIXSCALE * self.frame.xbinsize()
         ifunum = self.frame.ifunum()
@@ -2096,7 +2100,15 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
         else:
             slscl = KcwiConf.SLICESCALE
         # Package geometry data
-        geom = {"xsize": xsize, "ysize": ysize,
+        ofname = self.frame.header['OFNAME']
+        self.geom_file = os.path.join(conf.REDUXDIR,
+                                      ofname.split('.')[0] + '_geom.pkl')
+        if os.path.exists(self.geom_file):
+            self.log.error("Geometry file already exists: %s" % self.geom_file)
+        else:
+            geom = {
+                "geom_file": self.geom_file,
+                "xsize": xsize, "ysize": ysize,
                 "pxscl": pxscl, "slscl": slscl,
                 "cbarsno": self.cbarsno, "cbarsfl": self.cbarsfl,
                 "arcno": self.arcno, "arcfl": self.arcfl,
@@ -2106,20 +2118,69 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 "wavemid": self.wavemid, "dwout": self.dwout,
                 "wave0out": self.wave0out, "wave1out": self.wave1out,
                 "avwvsig": self.av_bar_sig, "sdwvsig": self.st_bar_sig,
-                "xl0": xl0_out, "xl1": xl1_out, "tform": tform_list}
-        ofname = self.frame.header['OFNAME']
-        outfn = os.path.join(conf.REDUXDIR, ofname.split('.')[0] + '_geom.pkl')
-        if os.path.exists(outfn):
-            self.log.error("Geometry file already exists: %s" % outfn)
-        else:
-            with open(outfn, 'wb') as ofile:
+                "xl0": xl0_out, "xl1": xl1_out,
+                "tform": tform_list, "invtf": invtf_list
+            }
+            with open(self.geom_file, 'wb') as ofile:
                 pickle.dump(geom, ofile)
-            self.log.info("Geometry written to: %s" % outfn)
+            self.log.info("Geometry written to: %s" % self.geom_file)
         logstr = self.solve_geom.__module__ + "." + \
                  self.solve_geom.__qualname__
         self.frame.header['HISTORY'] = logstr
         self.log.info(self.solve_geom.__qualname__)
     # END: solve_geom()
+
+    def generate_maps(self):
+        """Generate map images"""
+        if self.geom_file is not None and os.path.exists(self.geom_file):
+            with open(self.geom_file, 'rb') as ifile:
+                geom = pickle.load(ifile)
+            # get geometry params
+            xl0s = geom['xl0']
+            xl1s = geom['xl1']
+            invtf_list = geom['invtf']
+            wave0 = geom['wave0out']
+            dw = geom['dwout']
+            # Store original data
+            data_img = self.frame.data
+            ny = data_img.shape[0]
+            # Create map images
+            wave_map_img = np.full_like(data_img, fill_value=-1.)
+            xpos_map_img = np.full_like(data_img, fill_value=-1.)
+            slice_map_img = np.full_like(data_img, fill_value=-1.)
+            # loop over slices
+            for isl in range(0, 24):
+                itrf = invtf_list[isl]
+                xl0 = xl0s[isl]
+                xl1 = xl1s[isl]
+                for ix in range(xl0, xl1):
+                    coords = np.zeros((ny, 2))
+                    for iy in range(0, ny):
+                        coords[iy, 0] = ix - xl0
+                        coords[iy, 1] = iy
+                    ncoo = itrf(coords)
+                    for iy in range(0, ny):
+                        if slice_map_img[iy, ix] < 0:
+                            slice_map_img[iy, ix] = isl
+                        if xpos_map_img[iy, ix] < 0:
+                            xpos_map_img[iy, ix] = ncoo[iy, 0]
+                        if wave_map_img[iy, ix] < 0:
+                            wave_map_img[iy, ix] = ncoo[iy, 1] * dw + wave0
+            # output maps
+            self.frame.data = wave_map_img
+            self.write_image(suffix='wavemap')
+            self.frame.data = xpos_map_img
+            self.write_image(suffix='posmap')
+            self.frame.data = slice_map_img
+            self.write_image(suffix='slicemap')
+            self.frame.data = data_img
+            logstr = self.generate_maps.__module__ + "." + \
+                     self.generate_maps.__qualname__
+            self.frame.header['HISTORY'] = logstr
+        else:
+            self.log.error("Geom file not accessible")
+        self.log.info(self.generate_maps.__qualname__)
+        # END: generate_maps()
 
     def apply_flat(self):
         self.log.info("apply_flat")
