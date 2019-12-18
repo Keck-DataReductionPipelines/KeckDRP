@@ -32,6 +32,7 @@ def process_arclamp(p, frame):
     p.get_atlas_lines()
     p.solve_arcs()
     p.solve_geom()
+    p.generate_maps()
     p.make_cube()
 
     # write image

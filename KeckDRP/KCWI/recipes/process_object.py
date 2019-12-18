@@ -17,13 +17,6 @@ def process_object(p, frame):
     p.remove_crs()
     p.create_unc()
     p.rectify_image()
-    p.subtract_dark()
-
-    # KCWI specific reductions
-    # 2-D reductions
-    p.subtract_scattered_light()
-    p.apply_flat()
-    p.subtract_sky()
 
     # write image
     p.write_image(suffix='int')
@@ -33,10 +26,36 @@ def process_object(p, frame):
 
     p.log.info("science frame reduced")
 
+    # Dark/scattered light
+    p.subtract_dark()
+    p.subtract_scattered_light()
+
+    # write image
+    p.write_image(suffix='intd')
+    # update proc table
+    p.update_proctab(suffix='intd')
+    p.write_proctab()
+
+    # Flat field reduction
+    p.apply_flat()
+
+    # write image
+    p.write_image(suffix='intf')
+    # update proc table
+    p.update_proctab(suffix='intf')
+    p.write_proctab()
+
+    # Sky subtraction
+    p.subtract_sky()
+
+    # write image
+    p.write_image(suffix='intk')
+    # update proc table
+    p.update_proctab(suffix='intk')
+    p.write_proctab()
+
     # 3-D reductions
     p.make_cube()
-    p.apply_dar_correction()
-    p.flux_calibrate()
 
     # write image
     p.write_image(suffix='icube')
@@ -44,4 +63,22 @@ def process_object(p, frame):
     p.update_proctab(suffix='icube')
     p.write_proctab()
 
-    p.log.info("science cube generated")
+    # DAR correction
+    p.apply_dar_correction()
+
+    # write image
+    p.write_image(suffix='icubed')
+    # update proc table
+    p.update_proctab(suffix='icubed')
+    p.write_proctab()
+
+    # Flux calibration
+    p.flux_calibrate()
+
+    # write image
+    p.write_image(suffix='icubes')
+    # update proc table
+    p.update_proctab(suffix='icubes')
+    p.write_proctab()
+
+    p.log.info("calibrated science cube generated")
