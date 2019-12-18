@@ -63,11 +63,11 @@ class ProctabPrimitives(PrimitivesBASE):
             stages = {'RAW': 0,
                       'int': 1,
                       'intd': 2,
-                      'intf': 3,
-                      'intk': 4,
-                      'cube': 5,
-                      'cubed': 6,
-                      'cubes': 7}
+                      'intf': 4,
+                      'intk': 5,
+                      'icube': 6,
+                      'icubed': 7,
+                      'icubes': 8}
             if suffix in stages:
                 stage = stages[suffix]
             else:
@@ -150,6 +150,10 @@ class ProctabPrimitives(PrimitivesBASE):
                 if trow is not None:
                     tab = tab[(tab['FRAMENO'] == trow['FRAMENO'])]
         else:
+            if target_type is None:
+                self.log.warning("No target for proctab")
+            if self.proctab is None:
+                self.log.warning("Proctab is empty")
             tab = None
         return tab
 
