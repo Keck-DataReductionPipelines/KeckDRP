@@ -161,7 +161,27 @@ class CcdPrimitives(PrimitivesBASE):
         self.log.info("remove_badcols")
 
     def rectify_image(self):
-        self.log.info("rectify_image")
+        """Rotate images based on ampmode"""
+        ampmode = self.frame.header['AMPMODE'].strip().upper()
+        if '__B' in ampmode or '__G' in ampmode:
+            newimg = np.rot90(self.frame.data, 2)
+            newunc = np.rot90(self.frame.uncertainty.array, 2)
+            self.frame.data = newimg
+            self.frame.uncertainty.array = newunc
+        elif '__D' in ampmode or '__F' in ampmode:
+            newimg = np.fliplr(self.frame.data)
+            newunc = np.fliplr(self.frame.uncertainty.array)
+            self.frame.data = newimg
+            self.frame.uncertainty.array = newunc
+        elif '__A' in ampmode or '__H' in ampmode or 'TUP' in ampmode:
+            newimg = np.flipud(self.frame.data)
+            newunc = np.flipud(self.frame.uncertainty.array)
+            self.frame.data = newimg
+            self.frame.uncertainty.array = newunc
+        logstr = self.rectify_image.__module__ + "." + \
+                 self.rectify_image.__qualname__
+        self.frame.header['HISTORY'] = logstr
+        self.log.info(self.rectify_image.__qualname__)
 
     def parse_imsec(self, section_key=None):
         if section_key is None:
