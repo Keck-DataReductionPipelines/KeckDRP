@@ -40,19 +40,19 @@ def process_object(p, frame):
     p.apply_flat()
 
     # write image
-    p.write_image(suffix='intf')
+    # p.write_image(suffix='intf')
     # update proc table
-    p.update_proctab(suffix='intf')
-    p.write_proctab()
+    # p.update_proctab(suffix='intf')
+    # p.write_proctab()
 
     # Sky subtraction
     p.subtract_sky()
 
     # write image
-    p.write_image(suffix='intk')
+    # p.write_image(suffix='intk')
     # update proc table
-    p.update_proctab(suffix='intk')
-    p.write_proctab()
+    # p.update_proctab(suffix='intk')
+    # p.write_proctab()
 
     # 3-D reductions
     p.make_cube()
@@ -64,21 +64,21 @@ def process_object(p, frame):
     p.write_proctab()
 
     # DAR correction
-    p.apply_dar_correction()
+    # p.apply_dar_correction()
 
     # write image
-    p.write_image(suffix='icubed')
+    # p.write_image(suffix='icubed')
     # update proc table
-    p.update_proctab(suffix='icubed')
-    p.write_proctab()
+    # p.update_proctab(suffix='icubed')
+    # p.write_proctab()
 
     # Flux calibration
-    p.flux_calibrate()
+    # p.flux_calibrate()
 
     # write image
-    p.write_image(suffix='icubes')
+    # p.write_image(suffix='icubes')
     # update proc table
-    p.update_proctab(suffix='icubes')
-    p.write_proctab()
+    # p.update_proctab(suffix='icubes')
+    # p.write_proctab()
 
     p.log.info("calibrated science cube generated")
