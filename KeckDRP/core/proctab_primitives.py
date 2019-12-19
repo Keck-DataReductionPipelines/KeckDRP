@@ -11,11 +11,11 @@ class ProctabPrimitives(PrimitivesBASE):
 
     def new_proctab(self):
         cnames = ('FRAMENO', 'CID', 'DID', 'TYPE', 'GRPID', 'TTIME', 'CAM',
-                  'GRAT', 'GANG', 'CWAVE', 'BIN', 'FILT', 'MJD', 'STAGE',
-                  'SUFF', 'OFNAME', 'TARGNAME')
+                  'IFU', 'GRAT', 'GANG', 'CWAVE', 'BIN', 'FILT', 'MJD',
+                  'STAGE', 'SUFF', 'OFNAME', 'TARGNAME')
         dtypes = ('int32', 'S24', 'int64', 'S9', 'S12', 'float64', 'S4',
-                  'S5', 'float64', 'float64', 'S4', 'S5', 'float64', 'int32',
-                  'S5', 'S25', 'S25')
+                  'S6', 'S5', 'float64', 'float64', 'S4', 'S5', 'float64',
+                  'int32', 'S5', 'S25', 'S25')
         meta = {'KCWI DRP PROC TABLE': 'new table'}
         self.proctab = Table(names=cnames, dtype=dtypes, meta=meta)
         # prevent string column truncation
@@ -28,9 +28,9 @@ class ProctabPrimitives(PrimitivesBASE):
             self.log.info("reading proc table file: %s" % tfil)
             self.proctab = Table.read(tfil, format='ascii.fixed_width')
             self.proctab.dtypes = ('int32', 'S24', 'int64', 'S9', 'S12',
-                                   'float64', 'S4', 'S5', 'float64', 'float64',
-                                   'S4', 'S5', 'float64', 'int32', 'S5', 'S25',
-                                   'S25')
+                                   'float64', 'S4', 'S6', 'S5', 'float64',
+                                   'float64', 'S4', 'S5', 'float64', 'int32',
+                                   'S5', 'S25', 'S25')
         else:
             self.log.info("proc table file not found: %s" % tfil)
             self.new_proctab()
@@ -89,6 +89,7 @@ class ProctabPrimitives(PrimitivesBASE):
                        self.frame.header['GROUPID'],
                        self.frame.header['TTIME'],
                        self.frame.header['CAMERA'],
+                       self.frame.header['IFUNAM'],
                        self.frame.header['BGRATNAM'],
                        self.frame.header['BGRANGLE'],
                        self.frame.header['BCWAVE'],
