@@ -2044,7 +2044,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             srcw.append([xy[0], yw])
         # Use extremes to define output size
         ysize = int(max_srcw + min_srcw + 20 / self.frame.ybinsize())
-        xsize = int(max(self.refoutx) + 20 / self.frame.xbinsize())
+        xsize = int(5.*self.refdelx) + 1
         self.log.info("Output slices will be %d x %d px" % (xsize, ysize))
         # Now loop over slices and get relevant control points for each slice
         # Output variables
@@ -2072,8 +2072,12 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                     xi.append(self.dst[ixy][0])
                     yi.append(self.dst[ixy][1])
             # get image limits
-            xl0 = int(min(xi) - 24 / self.frame.xbinsize())
-            xl1 = int(max(xi) + 16 / self.frame.xbinsize())
+            xl0 = int(min(xi) - self.refdelx)
+            if xl0 < 0:
+                xl0 = 0
+            xl1 = int(max(xi) + self.refdelx)
+            if xl1 > (self.frame.data.shape[0]-1):
+                xl1 = self.frame.data.shape[0] - 1
             # Store for output
             xl0_out.append(xl0)
             xl1_out.append(xl1)
@@ -2141,6 +2145,7 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             invtf_list = geom['invtf']
             wave0 = geom['wave0out']
             dw = geom['dwout']
+            xsize = geom['xsize']
             # Store original data
             data_img = self.frame.data
             ny = data_img.shape[0]
@@ -2160,11 +2165,9 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         coords[iy, 1] = iy
                     ncoo = itrf(coords)
                     for iy in range(0, ny):
-                        if slice_map_img[iy, ix] < 0:
+                        if 0 <= ncoo[iy, 0] <= xsize:
                             slice_map_img[iy, ix] = isl
-                        if xpos_map_img[iy, ix] < 0:
                             xpos_map_img[iy, ix] = ncoo[iy, 0]
-                        if wave_map_img[iy, ix] < 0:
                             wave_map_img[iy, ix] = ncoo[iy, 1] * dw + wave0
             # output maps
             self.frame.data = wave_map_img
@@ -2208,7 +2211,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             # Slice size
             xsize = geom['xsize']
             ysize = geom['ysize']
-            # out_cube = np.zeros((24, xsize, ysize))
             out_cube = np.zeros((ysize, xsize, 24))
             # set up plots of transformed slices
             pl.clf()
@@ -2216,7 +2218,6 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             fig.set_size_inches(5, 12, forward=True)
             # Store original data
             data_img = self.frame.data
-            hdr_img = self.frame.header
             # Loop over 24 slices
             for isl in range(0, 24):
                 tform = geom['tform'][isl]
@@ -2224,16 +2225,29 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                 xl1 = geom['xl1'][isl]
                 self.log.info("Transforming image slice %d" % isl)
                 slice_img = data_img[:, xl0:xl1]
-
+                # wmed = np.nanmedian(slice_img)
+                # wstd = np.nanstd(slice_img)
+                # pl.clf()
+                # pl.imshow(slice_img, vmin=(wmed - wstd * 2.),
+                #          vmax=(wmed + wstd * 2.))
+                # pl.ylim(0, 2056)
+                # pl.title('raw slice %d' % isl)
+                # if do_inter:
+                #    q = input("<cr> - Next, q to quit: ")
+                #    if 'Q' in q.upper():
+                #        do_inter = False
+                #        pl.ioff()
+                # else:
+                #    pl.pause(self.frame.plotpause())
                 warped = tf.warp(slice_img, tform, order=3,
                                  output_shape=(ysize, xsize))
                 for iy in range(ysize):
                     for ix in range(xsize):
                         out_cube[iy, ix, isl] = warped[iy, ix]
-                wmid = np.nanmedian(warped)
+                wmed = np.nanmedian(warped)
                 wstd = np.nanstd(warped)
                 pl.clf()
-                pl.imshow(warped, vmin=(wmid-wstd*2.), vmax=(wmid+wstd*2.))
+                pl.imshow(warped, vmin=(wmed-wstd*2.), vmax=(wmed+wstd*2.))
                 pl.ylim(0, ysize)
                 pl.title('warped slice %d' % isl)
                 if do_inter:
@@ -2242,8 +2256,14 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         do_inter = False
                         pl.ioff()
                 else:
-                    pl.pause(self.frame.plotpause())
+                    pl.pause(0.5)
             # Update header
+            #
+            # Spatial geometry
+            self.frame.header['BARSEP'] = (geom['barsep'],
+                                           'separation of bars (binned pix)')
+            self.frame.header['BAR0'] = (geom['bar0'],
+                                         'first bar pixel position')
             # Wavelength ranges
             self.frame.header['WAVALL0'] = (geom['waveall0'],
                                             'Low inclusive wavelength')
@@ -2261,8 +2281,10 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.frame.header['SDWVSIG'] = (geom['sdwvsig'],
                                             'Stdev. var wave sigma (Ang)')
             # Pixel scales
-            self.frame.header['CTYPE3'] = ('AWAV', 'Air Wavelengths')
-            self.frame.header['CUNIT3'] = ('Angstrom', 'Wavelength units')
+            self.frame.header['PXSCL'] = (geom['pxscl'],
+                                          'Pixel scale along slice')
+            self.frame.header['SLSCL'] = (geom['slscl'],
+                                          'Pixel scale perpendicular to slices')
             # Geometry origins
             self.frame.header['CBARSNO'] = (geom['cbarsno'],
                                             'Continuum bars image number')
@@ -2273,6 +2295,8 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.frame.header['GEOMFL'] = (geom_file.split('/')[-1],
                                            'Geometry file')
             # WCS
+            self.frame.header['CTYPE3'] = ('AWAV', 'Air Wavelengths')
+            self.frame.header['CUNIT3'] = ('Angstrom', 'Wavelength units')
             self.frame.header['CNAME3'] = ('KCWI Wavelength', 'Wavelength name')
             self.frame.header['CRVAL3'] = (geom['wave0out'],
                                            'Wavelength zeropoint')
