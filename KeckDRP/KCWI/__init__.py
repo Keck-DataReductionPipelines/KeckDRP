@@ -59,6 +59,10 @@ class Conf(_config.ConfigNamespace):
         0.00037718,
         'Degrees per Large slicer slice'
     )
+    ROTOFF = _config.ConfigItem(
+        0.0,
+        'Rotator offset'
+    )
 
 
 KcwiConf = Conf()
