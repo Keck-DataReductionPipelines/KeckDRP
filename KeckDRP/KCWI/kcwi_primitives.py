@@ -19,6 +19,8 @@ from scipy.stats import sigmaclip, mode
 from skimage import transform as tf
 import pickle
 from astropy.table import Table
+from astropy.coordinates import SkyCoord
+from astropy import units as u
 import astropy.io.fits as pf
 import matplotlib.pyplot as pl
 import time
@@ -2257,6 +2259,73 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
                         pl.ioff()
                 else:
                     pl.pause(0.5)
+            # Calculate some WCS parameters
+            # Get object pointing
+            try:
+                if self.frame.nasmask():
+                        rastr = self.frame.header['RABASE']
+                        decstr = self.frame.header['DECBASE']
+                else:
+                    rastr = self.frame.header['RA']
+                    decstr = self.frame.header['DEC']
+            except KeyError:
+                try:
+                    rastr = self.frame.header['TARGRA']
+                    decstr = self.frame.header['TARGDEC']
+                except KeyError:
+                    rastr = ''
+                    decstr = ''
+            if len(rastr) > 0 and len(decstr) > 0:
+                coord = SkyCoord(rastr, decstr, unit=(u.hourangle, u.deg))
+            else:
+                coord = None
+            # Get rotator position
+            if 'ROTPOSN' in self.frame.header:
+                rpos = self.frame.header['ROTPOSN']
+            else:
+                rpos = 0.
+            if 'ROTREFAN' in self.frame.header:
+                rref = self.frame.header['ROTREFAN']
+            else:
+                rref = 0.
+            skypa = rpos + rref
+            crota = math.radians(-(skypa + KcwiConf.ROTOFF))
+            cdelt1 = -geom['slscl']
+            cdelt2 = geom['pxscl']
+            if coord is None:
+                ra = 0.
+                dec = 0.
+                crota = 1
+            else:
+                ra = coord.ra.degree
+                dec = coord.dec.degree
+            cd11 = cdelt1 * math.cos(crota)
+            cd12 = abs(cdelt2) * np.sign(cdelt1) * math.sin(crota)
+            cd21 = -abs(cdelt1) * np.sign(cdelt2) * math.sin(crota)
+            cd22 = cdelt2 * math.cos(crota)
+            crpix1 = 12.
+            crpix2 = xsize / 2.
+            crpix3 = 1.
+            porg = self.frame.header['PONAME']
+            ifunum = self.frame.ifunum()
+            if 'IFU' in porg:
+                if ifunum == 1:
+                    off1 = 1.0
+                    off2 = 4.0
+                elif ifunum == 2:
+                    off1 = 1.0
+                    off2 = 5.0
+                elif ifunum == 3:
+                    off1 = 0.05
+                    off2 = 5.6
+                else:
+                    self.log.warning("Unknown IFU number: %d" % ifunum)
+                    off1 = 0.
+                    off2 = 0.
+                off1 = off1 / float(self.frame.xbinsize())
+                off2 = off2 / float(self.frame.ybinsize())
+                crpix1 += off1
+                crpix2 += off2
             # Update header
             #
             # Spatial geometry
@@ -2295,14 +2364,37 @@ class KcwiPrimitives(CcdPrimitives, ImgmathPrimitives,
             self.frame.header['GEOMFL'] = (geom_file.split('/')[-1],
                                            'Geometry file')
             # WCS
+            self.frame.header['IFUPA'] = (skypa, 'IFU position angle (degrees)')
+            self.frame.header['IFUROFF'] = (KcwiConf.ROTOFF,
+                                            'IFU-SKYPA offset (degrees)')
+            self.frame.header['WCSDIM'] = (3, 'number of dimensions in WCS')
+            self.frame.header['WCSNAME'] = 'KCWI'
+            self.frame.header['EQUINOX'] = 2000.
+            self.frame.header['RADESYS'] = 'FK5'
+            self.frame.header['CTYPE1'] = 'RA---TAN'
+            self.frame.header['CTYPE2'] = 'DEC--TAN'
             self.frame.header['CTYPE3'] = ('AWAV', 'Air Wavelengths')
+            self.frame.header['CUNIT1'] = ('deg', 'RA units')
+            self.frame.header['CUNIT2'] = ('deg', 'DEC units')
             self.frame.header['CUNIT3'] = ('Angstrom', 'Wavelength units')
+            self.frame.header['CNAME1'] = ('KCWI RA', 'RA name')
+            self.frame.header['CNAME2'] = ('KCWI DEC', 'DEC name')
             self.frame.header['CNAME3'] = ('KCWI Wavelength', 'Wavelength name')
+            self.frame.header['CRVAL1'] = (ra, 'RA zeropoint')
+            self.frame.header['CRVAL2'] = (dec, 'DEC zeropoint')
             self.frame.header['CRVAL3'] = (geom['wave0out'],
                                            'Wavelength zeropoint')
-            self.frame.header['CRPIX3'] = (1., 'Wavelength reference pixel')
+            self.frame.header['CRPIX1'] = (crpix1, 'RA reference pixel')
+            self.frame.header['CRPIX2'] = (crpix2, 'DEC reference pixel')
+            self.frame.header['CRPIX3'] = (crpix3, 'Wavelength reference pixel')
+            self.frame.header['CD1_1'] = (cd11, 'RA degrees per column pixel')
+            self.frame.header['CD2_1'] = (cd21, 'DEC degrees per column pixel')
+            self.frame.header['CD1_2'] = (cd12, 'RA degrees per row pixel')
+            self.frame.header['CD2_2'] = (cd22, 'DEC degrees per row pixel')
             self.frame.header['CD3_3'] = (geom['dwout'],
                                           'Wavelength Angstroms per pixel')
+            self.frame.header['LONPOLE'] = (180.0, 'Native longitude of Celestial pole')
+            self.frame.header['LATPOLE'] = (0.0, 'Native latitude of Celestial pole')
             # write out cube
             logstr = self.make_cube.__module__ + "." + \
                      self.make_cube.__qualname__
