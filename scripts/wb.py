@@ -7,6 +7,7 @@ def get_log_string(ifile, batch=False):
         ff = pf.open(ifile)
     except IOError:
         print("***ERROR*** empty or corrupt fits file: %s" % ifile)
+        quit()
 
     header = ff[0].header
     header['FNAME'] = ifile
@@ -26,6 +27,8 @@ def get_log_string(ifile, batch=False):
                 header['NUMOPEN'] = -1
             if 'XPOSURE' not in header:
                 header['XPOSURE'] = -1.
+            if 'AIRMASS' not in header:
+                header['AIRMASS'] = -1.
             if 'TELAPSE' not in header:
                 header['TELAPSE'] = -1.
             if 'BFILTNAM' not in header:
@@ -91,7 +94,7 @@ def get_log_string(ifile, batch=False):
                           "%(GAINMUL)2d/%(NUMOPEN)2d/%(EXPTIME)6.1f s), (%(IFUNAM)3s/" \
                           "%(BFILTNAM)5s/%(BGRATNAM)4s/%(BGROTNAM)9s dg/" \
                           "%(BCWAVE)6.1f/%(CALPNAM)5s/%(CALLANG)5.1f dg), " \
-                          "(%(BARTANG)5.1f/%(BNASNAM)4s/%(BFOCMM)6.3f): %(IMTYPE)7s/" \
+                          "(%(BARTANG)5.1f/%(BNASNAM)4s/%(BFOCMM)6.3f) %(AIRMASS)5.3f: %(IMTYPE)7s/" \
                           "%(ILLUME)6s/%(OBJECT)s" % header
             except:
                 lstring = "%28s : ?" % ifile
